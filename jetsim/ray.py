@@ -1,3 +1,4 @@
+import math
 import numpy as np
 
 
@@ -26,13 +27,29 @@ class Geometry(object):
 
 
 class Cone(Geometry):
-    def __init__(self, center, angle):
-        self.center = center
-        self.angle = angle
+    def __init__(self, origin, direction, angle):
+        self.origin = np.array(origin)
+        self.direction = np.array(direction) / np.linalg.norm(np.array(direction))
+        self.angle = float(angle)
 
     def hit(self, ray):
         # return (back, front,)
-        pass
+        # 1. Find coefficients A, B, C
+        angle = self.angle
+        direction = self.direction
+        dp = ray.origin - self.origin
+        expr1 = ray.direction - np.dot(ray.direction, direction) * direction
+        expr2 = dp - np.dot(dp, direction) * direction
+        a = math.cos(angle) ** 2 * np.dot(expr1, expr1) -\
+            math.sin(angle) ** 2 * np.dot(ray.direction, direction) ** 2
+        b = 2 * math.cos(angle) ** 2 * np.dot(expr1, expr2) -\
+            2 * math.sin(angle) ** 2 * np.dot(ray.direction, direction) * np.dot(dp, direction)
+        c = math.cos(angle) ** 2 * np.dot(expr2, expr2) -\
+            math.sin(angle) ** 2 * np.dot(dp, direction) ** 2
+        d = b ** 2 - 4. * a * c
+        t1 = (-b + math.sqrt(d)) / (2. * a)
+        t2 = (-b - math.sqrt(d)) / (2. * a)
+        return ray.point(min(t1, t2)), ray.point(max(t1,t2))
 
 
 class Parabolic(Geometry):
@@ -46,7 +63,10 @@ class Cylinder(Geometry):
 class Ray(object):
     def __init__(self, origin, direction):
         self.origin = np.array(origin)
-        self.direction = np.array(direction)
+        self.direction = np.array(direction) / np.linalg.norm(np.array(direction))
+
+    def point(self, t):
+        return self.origin + self.direction * t
 
 
 class ViewPlane(object):
@@ -56,15 +76,15 @@ class ViewPlane(object):
     def __init__(self, imsize, pixel_size, direction):
         self.imsize = imsize
         self.pixel_size = pixel_size
-        self.direction = direction
+        self.direction = np.array(direction) / np.linalg.norm(np.array(direction))
 
     def iter_row(self, row):
         for column in xrange(self.imsize[0]):
             origin = np.zeros(3)
-            origin[0] = self.pixel_size*(column - self.imsize[0] / 2 + 0.5)
+            origin[0] = 0.
             origin[1] = self.pixel_size*(row - self.imsize[1] / 2 + 0.5)
             origin[2] = 100.0
-            yield (Ray(origin = origin, direction = self.direction), (column,row))
+            yield (Ray(origin = origin, direction = self.direction), (column, row))
 
     def __iter__(self):
         for row in xrange(self.imsize[1]):
