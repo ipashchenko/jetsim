@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from geometry import Cone
 from bfields import BFHelical
 from vfields import CentralVField
 from nfields import BKNField
@@ -28,8 +29,13 @@ class Jet(object):
     Class that represents jet's physical properties: distribution of magnetic
     field, particle density, velocity flow.
     """
-    def __init__(self, bfield=BFHelical, vfield=CentralVField, nfield=BKNField,
-                 bf_kwargs=None, vf_kwargs=None, nf_kwargs=None):
+    def __init__(self, geometry=Cone, bfield=BFHelical, vfield=CentralVField,
+                 nfield=BKNField, geo_kwargs=None, bf_kwargs=None,
+                 vf_kwargs=None, nf_kwargs=None):
+        if geo_kwargs is not None:
+            self.geometry = geometry((0., 0., 0.,), (0., 0., 1.,), bf_kwargs)
+        else:
+            self.geometry = geometry((0., 0., 0.,), (0., 0., 1.,))
         if bf_kwargs is not None:
             self.bfield = bfield(bf_kwargs)
         else:
@@ -98,7 +104,30 @@ class Jet(object):
         return ((1. + G) * B + G ** 2. * B.dot(v) * v) /\
                ((1. + G) * np.sqrt(1. + G ** 2. * (B.dot(v)) ** 2.))
 
+    def nf_j(self, x, y, z):
+        """
+        Particle density in plasma rest-frame.
+        :params x, y, z:
+        :return:
+        """
+        return self.nfield.n(x, y, z) / self.G(x, y, z)
 
+    def source_func_j(self, x, y, z):
+        """
+        Source function in point (x, y, z) calculated in plasma rest frame.
+        :params x, y, z:
+        :return:
+        """
+        pass
+
+    def k_I_j(self, x, y, z):
+        """
+        Absorbtion coefficient in point (x, y, z) calculated in plasma rest
+        frame.
+        :params x, y, z:
+        :return:
+        """
+        pass
 
 
 def integrate(ray, t1, t2):
@@ -109,5 +138,3 @@ def integrate(ray, t1, t2):
     if p1[2] > 0 and p2[2] < 0:
         p1 = ray.point(-1000)
     dt = tmax - tmin
-
-
