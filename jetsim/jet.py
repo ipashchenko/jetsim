@@ -1,75 +1,113 @@
 import math
 import numpy as np
+from bfields import BFHelical
+from vfields import CentralVField
+from nfields import BKNField
 
 eps = 10**(-5)
+m_e = 0
+e = 0
+c = 0
+
+# plasma frequency (for electrons)
+# nu_p = math.sqrt(n_e * e ** 2. / (math.pi * m_e))
+# larmor frequency (for electrons)
+# nu_B = e * B / (2. * math.pi * m_e * c)
+# eta_0 (for electrons)
+# eta_0 = math.pi * nu_p ** 2. * nu_B * m_e / c
+# k_0 (for electrons), nu - frequency
+# k_0 = math.pi * nu_p ** 2. * nu_B / (c * nu ** 2.)
+
+# emission coeff. (for electrons)
+# eta_I = eta_0*math.sin(theta)*(nu_B*math.sin(theta)/nu)**((s-1.)/2.)*(3.**(s/2.)/(2.*(s+1.)))*Gamma(s/4.+19./12.)*Gamma(s/4.-1./12.)
+# absorbtion coeff.
+# k_I = k_0*math.sin(theta)*(nu_B*math.sin(theta)/nu)**(s/2.)*(3.**((s+1.)/2.)/4.)*Gamma(s/4.+11./16.)*Gamma(s/4.+1./6.)
 
 class Jet(object):
     """
     Class that represents jet's physical properties: distribution of magnetic
     field, particle density, velocity flow.
     """
-    def __init__(self):
+    def __init__(self, bfield=BFHelical, vfield=CentralVField, nfield=BKNField,
+                 bf_kwargs=None, vf_kwargs=None, nf_kwargs=None):
+        if bf_kwargs is not None:
+            self.bfield = bfield(bf_kwargs)
+        else:
+            self.bfield = bfield()
+        if vf_kwargs is not None:
+            self.vfield = vfield(bf_kwargs)
+        else:
+            self.vfield = vfield()
+        if nf_kwargs is not None:
+            self.nfield = nfield(nf_kwargs)
+        else:
+            self.nfield = nfield()
+
+    def integrate(self, ray):
+        """
+        Integrate along ray.
+        """
         pass
 
-    def integrate(self, ray, back, front):
+    def D(self, n, x, y, z):
         """
-        Integrate along ray from back to front.
+        Returns Doppler factor for point ``(x, y, z)`` and direction ``n`` in
+        observer frame.
+        :param n:
+        :params x, y, z:
+        :return:
         """
-        pass
+        v = self.vf(x, y, z)
+        G = 1. / np.sqrt(1. - v.dot(v))
+        return 1. / (G * (1. - n.dot(v)))
+
+    def G(self, x, y, z):
+        v = self.vf(x, y, z)
+        return 1. / np.sqrt(1. - v.dot(v))
+
+    def vf(self, x, y, z):
+        """
+        Velocity field of jet in observer rest frame.
+        :param x, y, z:
+            Rectangular coordinates. (3, N,) N-number of points
+        """
+        return self.vfield.v(x, y, z)
+
+    def bf(self, x, y, z):
+        """
+        Returns vector of B-field of jet in observer frame.
+        """
+        return self.bfield.bf(x, y, z)
+
+    def n_j(self, n, x, y, z):
+        """
+        Direction in plasma rest-frame.
+        """
+        v = self.vf(x, y, z)
+        G = 1. / np.sqrt(1. - v.dot(v))
+        return (n + G * v * (G * n.dot(v) / (G + 1.) - 1.)) /\
+               (G * (1. - n.dot(v)))
+
+    def bf_j(self, x, y, z):
+        """
+        Direction of B-filed in plasma rest-frame.
+        """
+        G = self.G(x, y, z)
+        B = self.bf(x, y, z)
+        v = self.vf(x, y, z)
+        return ((1. + G) * B + G ** 2. * B.dot(v) * v) /\
+               ((1. + G) * np.sqrt(1. + G ** 2. * (B.dot(v)) ** 2.))
 
 
-def bf_fi(x, y, z, z_0=1., bf_fi_0=10**(-1)):
-    """
-    Fi-component of B-field as function of z-cylinder coordinate ``z`` and value
-    of ``z`` where ``bf_fi`` equals specified value ``bf_fi_0``.
-    :param z:
-    :param z_0:
-    :param bf_fi_0:
-    :return:
-    """
-    return bf_fi_0 * z_0 / z
 
 
-def bf_z(x, y, z, z_0=1, bf_z_0=10**(-1)):
-    """
-    Z-component of B-field as function of z-cylinder coordinate ``z`` and value
-    of ``z`` where ``bf_z`` equals specified value ``bf_z_0``.
-    :param z:
-    :param z_0:
-    :param bf_z_0:
-    :return:
-    """
-    return bf_z_0 * (z_0 / z) ** 2.
+def integrate(ray, t1, t2):
+    tmin = min(t1, t2)
+    tmax = max(t1, t2)
+    p1 = ray.point(tmin)
+    p2 = ray.point(tmax)
+    if p1[2] > 0 and p2[2] < 0:
+        p1 = ray.point(-1000)
+    dt = tmax - tmin
 
-
-def bf(x, y, z):
-    """
-    Vector of B-field at N points (x, y, z) in rectangular coordinates.
-    """
-    return np.array([-bf_z(x, y, z) * y / np.sqrt(x * x + y * y),
-                     bf_fi(x, y, z) * x / np.sqrt(x * x + y * y),
-                     bf_z(x, y, z)])
-
-
-def n_z(x, y, z, z_0=1., n_z_0=1.):
-    return n_z_0 * (z_0 / z) ** 2.
-
-
-def beta(x, y, z, z_0=1, theta_0=0., gamma0=10.):
-    """
-    Velocity field of jet.
-    :param x, y, z:
-        Rectangular coordinates. (3, N,) N-number of points
-    :param gamma0:
-        Lorentz-factor of jet at ``z_0`` & ``theta_0``
-    :return:
-        (3, N,) array of vectors of velocity of jet at given N point ``xyz`` in
-        rectangular coordinates.
-    """
-    # r-component of velocity in spherical coordinates
-    value = math.sqrt(1. - 1. / gamma0 ** 2.)
-    result =  np.array([value * x / np.sqrt(x * x + y * y + z * z),
-                        value * y / np.sqrt(x * x + y * y + z * z),
-                        value * z / np.sqrt(x * x + y * y + z * z)])
-    return result
 
