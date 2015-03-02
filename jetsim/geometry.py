@@ -46,7 +46,8 @@ class Cone(Geometry):
         t1 = (-b + math.sqrt(d)) / (2. * a)
         t2 = (-b - math.sqrt(d)) / (2. * a)
         print "Solutions : ", t1, t2
-        return ray.point(min(t1, t2)), ray.point(max(t1,t2))
+        #return ray.point(min(t1, t2)), ray.point(max(t1,t2))
+        return t1, t2
 
 
 class Parabolic(Geometry):
