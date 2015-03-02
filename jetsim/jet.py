@@ -1,9 +1,9 @@
-import math
 import numpy as np
 from geometry import Cone
 from bfields import BFHelical
 from vfields import CentralVField
 from nfields import BKNField
+from utils import AlongBorderException
 
 eps = 10**(-5)
 m_e = 0
@@ -24,10 +24,11 @@ c = 0
 # absorbtion coeff.
 # k_I = k_0*math.sin(theta)*(nu_B*math.sin(theta)/nu)**(s/2.)*(3.**((s+1.)/2.)/4.)*Gamma(s/4.+11./16.)*Gamma(s/4.+1./6.)
 
+
 class Jet(object):
     """
-    Class that represents jet's physical properties: distribution of magnetic
-    field, particle density, velocity flow.
+    Class that represents jet's physical properties: geometry, distribution of
+    magnetic field, particle density, velocity flow.
     """
     def __init__(self, geometry=Cone, bfield=BFHelical, vfield=CentralVField,
                  nfield=BKNField, geo_kwargs=None, bf_kwargs=None,
@@ -49,11 +50,47 @@ class Jet(object):
         else:
             self.nfield = nfield()
 
-    def integrate(self, ray):
+    # TODO: If optical depth is Lorenz-invariant then traverse from front of jet
+    # to tau=tau_max in observer frame first to set initial point.
+    def transfer_stokes_along_ray(self, ray, stokes=None, n=100, max_tau=None,
+                                  max_delta=0.01):
         """
-        Integrate along ray.
+        Transfer stokes vector along given ray.
+
+        :param ray:
+            Instance of Ray class. Ray along which to make polaization transfer.
+        :param stokes (optioanl):
+            Initial (background) stokes vector.
+        :param n (optioanl):
+            Number of cells to use.
+        :param max_tau (optioanl):
+            Maximum optical depth to traverse into jet. Ignore all emission with
+            tau > max_tau.
+        :param max_delta:
+            Maximum fractional change of physical quantities (B-field, n, v) in
+            neighbor cells. If fractional change is more then max_delta =>
+            divide cell in two (recursevly).
         """
-        pass
+        if stokes is None:
+            stokes = np.zeros(4, dtype=float)
+        else:
+            stokes = np.array(stokes)
+        try:
+            t1, t2 = self.geometry.hit(ray)
+            dt = abs(t2 - t1) / n
+            ts = [t1 + i * dt for i in xrange(n)]
+            ps = [ray.point(t) for t in ts]
+            # 1) Going from background into jet
+            # 2) Cycle inside jet
+            # 3) Coming out of jet
+        # If ``hit`` returns ``None`` => no interception of ray with jet.
+        except TypeError:
+            result = stokes
+        except AlongBorderException:
+            # Going to max_tau if given or just traversing along border
+            pass
+
+        return result
 
     def D(self, n, x, y, z):
         """
@@ -128,13 +165,3 @@ class Jet(object):
         :return:
         """
         pass
-
-
-def integrate(ray, t1, t2):
-    tmin = min(t1, t2)
-    tmax = max(t1, t2)
-    p1 = ray.point(tmin)
-    p2 = ray.point(tmax)
-    if p1[2] > 0 and p2[2] < 0:
-        p1 = ray.point(-1000)
-    dt = tmax - tmin
