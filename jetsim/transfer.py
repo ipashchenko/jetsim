@@ -1,12 +1,12 @@
 import math
 import numpy as np
 from geometry import Cone, Ray
+from utils import transfer_stokes
 
 
 class Transfer(object):
-    def __init__(self, imsize, los_angle, pixsize=(1., 1.,)):
-        self.geometry = Cone(origin=(0., 0., 0.), direction=(0., 0., 1.),
-                             angle=math.pi/6.)
+    def __init__(self, jet, imsize, los_angle, pixsize=(1., 1.,)):
+        self.jet = jet
         self.los_direction = (math.sin(los_angle), 0, -math.cos(los_angle))
         self.yscale = pixsize[0]
         self.zscale = pixsize[1]
@@ -22,7 +22,7 @@ class Transfer(object):
         jet_coordinates = image_coordinates.copy()
         jet_coordinates[..., 0] = image_coordinates[..., 0] * pixsize[0]
         jet_coordinates[..., 1] = image_coordinates[..., 1] * pixsize[1] /\
-                                  math.sin(self.geometry.angle)
+                                  math.sin(self.jet.geometry.angle)
         # Add zero x-coordinate for points in (yz)-jet plane
         jet_coordinates = np.dstack((np.zeros(imsize), jet_coordinates))
         self.image_coordinates = image_coordinates
@@ -38,12 +38,17 @@ class Transfer(object):
         for row in xrange(self.imsize[0]):
             yield self.iter_row(row)
 
-    def generate_interceptions(self):
+    def transfer(self, n=100):
         image = np.zeros(self.imsize)
         for row in self:
             for ray, pixel in row:
                 try:
-                    p1, p2 = self.geometry.hit(ray)
+                    t1, t2 = self.jet.geometry.hit(ray)
+                    dt = abs(t2 - t1) / n
+                    ts = [t1 + i * dt for i in xrange(n)]
+                    ps = [ray.point(t) for t in ts]
+                    p1 = ray.point(t1)
+                    p2 = ray.point(t2)
                     dp = np.linalg.norm(p1 - p2)
                     image[pixel] = dp
                     print dp
@@ -52,5 +57,22 @@ class Transfer(object):
                     image[pixel] = dp
         return image
 
-
-
+    def transfer_along_ray(self, ps):
+        """
+        Transfer stokes parameters along LOS using ``n`` specified points.
+        :param ps:
+        :return:
+        """
+        stokes1 = np.zeros(4, dtype=float)
+        for i in range(len(ps)):
+            dl = np.linalg.norm(ps[i], ps[i + 1])
+            k_I = self.jet.k_I_j(ps[i + 1])
+            dtau = k_I * dl
+            stokes0 = stokes1.copy()
+            # Boost stokes0 from RF0 to RF1
+            stokes1 = transfer_stokes(stokes0, self.jet(ps[i]),
+                                      self.jet(ps[i + 1]), -self.los_direction,
+                                      self.jet.bf_j(ps[i + 1]))
+            stokes1 = stokes1 + np.array([self.jet.source_func_j(ps[i + 1]) * dtau - stokes1[0] * dtau,
+                                          0.,
+                                          0.])
