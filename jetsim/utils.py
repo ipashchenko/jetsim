@@ -2,6 +2,10 @@ import math
 import numpy as np
 
 
+class AlongBorderException(Exception):
+    pass
+
+
 def velsum(v, u):
     """
     Relativistic sum of two 3-velocities ``u`` and ``v``.
@@ -24,9 +28,13 @@ def luminosity_distance(z, H_0=73.0, omega_M=0.3, omega_V=0.7, format="cm"):
     from scipy.integrate import quad
 
     if format == "cm":
-        return 9.26 * 10.0 ** 27.0 * (H_0 / 100.0) ** (-1.) * (1. + z) * quad(lambda x: (omega_M * (1. + x ** 3) + omega_V) ** (-0.5), 0, z)[0]
+        return 9.26 * 10.0 ** 27.0 * (H_0 / 100.0) ** (-1.) * (1. + z) *\
+               quad(lambda x: (omega_M * (1. + x ** 3) + omega_V) ** (-0.5),
+                    0, z)[0]
     elif format == "Mpc":
-        return 3000.0 * (H_0 / 100.0) ** (-1.) * (1. + z) * quad(lambda x: (omega_M * (1. + x ** 3) + omega_V) ** (-0.5), 0, z)[0]
+        return 3000.0 * (H_0 / 100.0) ** (-1.) * (1. + z) *\
+               quad(lambda x: (omega_M * (1. + x ** 3) + omega_V) ** (-0.5),
+                    0, z)[0]
     else:
         raise Exception('Format=\"cm\" or \"Mpc\"')
 
@@ -76,3 +84,7 @@ def transfer_stokes(stokes1, v1, v2, n1, bf2):
     U2 = LP2 * math.sin(2. * chi2)
 
     return np.array([I2, Q2, U2, V2])
+
+
+def transform_to_lab(stokes, v):
+    pass
