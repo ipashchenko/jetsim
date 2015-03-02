@@ -15,7 +15,7 @@ class Geometry(object):
 
 
 class Cone(Geometry):
-    def __init__(self, origin, direction, angle):
+    def __init__(self, origin, direction, angle=math.pi / 6):
         self.origin = np.array(origin)
         self.direction = np.array(direction) / np.linalg.norm(np.array(direction))
         self.angle = float(angle)
