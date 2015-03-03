@@ -5,6 +5,90 @@ import numpy as np
 class AlongBorderException(Exception):
     pass
 
+eps = 10**(-5)
+# Mass of electron
+m_e = 0
+# Charge of electron
+e = -1.6 * 10 ** (-19)
+# Speed of light [cm / s]
+c = 3. * 10 ** 8
+
+# Plasma frequency (default - for electrons)
+def nu_plasma(n, q=e, m=m_e):
+    """
+    Returns plasma frequency for particles with charge ``q`` and mass ``m``.
+    Default are electrons/positrons.
+    :param n:
+        Concentration [cm ** (-3)]
+    :param q (optional):
+        Particle's charge. Default is ``e``.
+    :param m (optional):
+        Particle's mass. Default is ``m_e``.
+    :return:
+        Plasma frequency [Hz].
+    """
+    return math.sqrt(n * q ** 2. / (math.pi * m))
+
+
+# Larmor frequency (default - for electrons)
+def nu_b(B, q=e, m=m_e):
+    """
+    Returns larmor frequency for particles with charge ``q`` and mass ``m``.
+    Default are electrons/positrons.
+    :param B:
+        Magnetic field [G]
+    :param q (optional):
+        Particle's charge. Default is ``e``.
+    :param m (optional):
+        Particle's mass. Default is ``m_e``.
+    :return:
+        Larmor frequency [Hz].
+    """
+    return q * B / (2. * math.pi * m * c)
+
+# eta_0 (default - for electrons)
+def eta_0(n, B, q=e, m=m_e):
+    """
+    Coefficient ``eta_0`` in emission coefficient.
+    :param n:
+        Concentration [cm ** (-3)]
+    :param B:
+        Magnetic field [G]
+    :param q (optional):
+        Particle's charge. Default is ``e``.
+    :param m (optional):
+        Particle's mass. Default is ``m_e``.
+    :return:
+        Coefficient ``eta_0`` used in expression for emission coefficient.
+    """
+    return math.pi * nu_plasma(n, q=q, m=m) ** 2. * nu_b(B, q=q, m=m) * m / c
+
+
+# k_0 (default - for electrons)
+def k_0(nu, n, B, q=e, m=m_e):
+    """
+    Coefficient ``k_0`` in absorption coefficient.
+    :param nu:
+        Frequency of radiation [Hz].
+    :param n:
+        Concentration [cm ** (-3)]
+    :param B:
+        Magnetic field [G]
+    :param q (optional):
+        Particle's charge. Default is ``e``.
+    :param m (optional):
+        Particle's mass. Default is ``m_e``.
+    :return:
+        Coefficient ``k_0`` used in expression for absorption coefficient.
+    """
+    return math.pi * nu_plasma(n, q=q, m=m) ** 2. * nu_b(B, q=q, m=m) /\
+           (c * nu ** 2.)
+
+# emission coeff. (for electrons)
+# eta_I = eta_0*math.sin(theta)*(nu_B*math.sin(theta)/nu)**((s-1.)/2.)*(3.**(s/2.)/(2.*(s+1.)))*Gamma(s/4.+19./12.)*Gamma(s/4.-1./12.)
+# absorbtion coeff.
+# k_I = k_0*math.sin(theta)*(nu_B*math.sin(theta)/nu)**(s/2.)*(3.**((s+1.)/2.)/4.)*Gamma(s/4.+11./16.)*Gamma(s/4.+1./6.)
+
 
 def velsum(v, u):
     """
