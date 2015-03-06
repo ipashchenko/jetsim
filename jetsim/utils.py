@@ -262,6 +262,11 @@ def doppler_factor(v1, v2, n1):
     return D2r1
 
 
+# G = 10.
+# v2 = np.array([0, 0, math.sqrt(G**2-1)/G])
+# v1 = np.array([0.0, 0, 0])
+# n1 = np.array([-sin(1/G), 0, cos(1/G)])
+# stokes1 = array([1., 0, 0, 0])
 def transfer_stokes(stokes1, v1, v2, n1, bf2):
     """
     Transfer stokes vector from frame that has velocity v1 in observer frame to
@@ -285,6 +290,7 @@ def transfer_stokes(stokes1, v1, v2, n1, bf2):
     v2r1 = velsum(v2, -v1)
     G2r1 = 1. / math.sqrt(1. - v2r1.dot(v2r1))
     # Direction of propagation in second RF.
+    # array([-0.9999986 ,  0.        ,  0.00167561])
     n2 =  (n1 + G2r1 * v2r1 * (G2r1 * n1.dot(v2r1) / (G2r1 + 1.) - 1.)) / \
           (G2r1 * (1. - n1.dot(v2r1)))
     D2r1 = 1. / (G2r1 * (1. - n1.dot(v2r1)))
@@ -293,17 +299,19 @@ def transfer_stokes(stokes1, v1, v2, n1, bf2):
     LP1 = math.sqrt(Q1 ** 2. + U1 ** 2.)
     chi1 = math.atan2(U1, Q1)
     # Polarization angle in first RF
+    # array([ 0.,  1.,  0.])
     e1 = np.array([n1[2] * math.sin(chi1),
                    math.cos(chi1),
                    -n1[0] * math.sin(chi1)])
     # Polarization angle in second RF
+    # array([ 0.        ,  0.09983356,  0.        ])
     e2 = G2r1 * (e1 - (G2r1 / (G2r1 + 1)) * e1.dot(v2r1) * v2r1 +
                  np.cross(v2r1, np.cross(n1, e1)))
     # FIXME: There should be * (compare v1=0 v2~c)
     I2 = I1 * D2r1 ** 3.
     V2 = V1 * D2r1 ** 3.
     LP2 = LP1 * D2r1 ** 3.
-    chi2 = math.acos(((bf2 - bf2.dot(n2) * n2) / np.linalg.norm(bf2 - bf2.dot(n2) * n2)) * e2 / np.linalg.norm(e2))
+    chi2 = math.acos(((bf2 - bf2.dot(n2) * n2) / np.linalg.norm(bf2 - bf2.dot(n2) * n2)).dot(e2 / np.linalg.norm(e2)))
     Q2 = LP2 * math.cos(2. * chi2)
     U2 = LP2 * math.sin(2. * chi2)
 
