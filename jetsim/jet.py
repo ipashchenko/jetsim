@@ -41,7 +41,8 @@ class Jet(object):
         self.nu = None
 
     # TODO: If optical depth is Lorenz-invariant then traverse from front of jet
-    # to tau=tau_max in observer frame first to set initial point.
+    # to tau=``tau_max`` in observer frame first to set initial point.
+    # TODO: Add option of choosing ``n`` using only ``max_delta`` & ``max_tau``.
     def transfer_stokes_along_ray(self, ray, stokes=None, n=100, max_tau=None,
                                   max_delta=0.01):
         """
@@ -67,7 +68,7 @@ class Jet(object):
             stokes = np.array(stokes)
         try:
             t1, t2 = self.geometry.hit(ray)
-            # 1) Make default n cells
+            # 1) Make default ``n`` cells
             dt = abs(t2 - t1) / n
             # Parameters of edges of cells
             t_edges = [t1 + i * dt for i in xrange(n)]
