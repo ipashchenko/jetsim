@@ -7,11 +7,24 @@ class VField(object):
     """
     def v(self, x, y, z):
         """
-        Velocity field of jet in observer rest frame.
+        Velocity field of jet in observer rest frame in triangular coordinates.
         :param x, y, z:
             Rectangular coordinates. (3, N,) N-number of points
         """
         raise NotImplementedError
+
+
+class FlatVField(VField):
+    """
+    Velocity field directed along z-direction.
+    """
+    def __init__(self, gamma0=10.):
+        self.gamma0 = gamma0
+
+    def v(self, x, y, z):
+        # z-component of velocity in triangular coordinates
+        v_z = math.sqrt(1. - 1. / self.gamma0 ** 2.)
+        return  np.array([0., 0., v_z])
 
 
 class CentralVField(VField):
