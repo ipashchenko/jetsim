@@ -97,7 +97,7 @@ class Jet(object):
                 # Calculate physical distance between cell edges
                 dp = np.linalg.norm(p_edges[i + 1] - p_edges[i])
                 # Calculate optical depth
-                dtau = self.k_I(x, y, z, -ray.direction)
+                dtau = self.k_I(x, y, z, -ray.direction) * dp
                 # Calculate source function
                 s_func = self.source_func_j(x, y, z, -ray.direction)
                 # This adds to stokes vector in current cell rest frame
@@ -196,17 +196,22 @@ class Jet(object):
             Vector of direction in observer rest frame.
         :return:
         """
-        n_j = self.nf_j(x, y, z)
+        nf_j = self.nf_j(x, y, z)
         B_j = self.bf_j(x, y, z)
         n_j = self.n_j(n, x, y, z)
         sin_theta = np.cross(n_j, B_j) / np.linalg.norm(B_j)
-        return source_func(self.nu, n_j, sin_theta, s=self.s, q=self.q, m=self.m)
+        return source_func(self.nu, nf_j, sin_theta, s=self.s, q=self.q,
+                           m=self.m)
 
-    def k_I_j(self, x, y, z):
+    def k_I_j(self, x, y, z, n):
         """
         Absorbtion coefficient in point (x, y, z) calculated in plasma rest
         frame.
         :params x, y, z:
         :return:
         """
-        pass
+        nf_j = self.nf_j(x, y, z)
+        B_j = self.bf_j(x, y, z)
+        n_j = self.n_j(n, x, y, z)
+        sin_theta = np.cross(n_j, B_j) / np.linalg.norm(B_j)
+        return k_I(self.nu, nf_j, B_j, sin_theta, s=2.5, q=q_e, m=m_e)
