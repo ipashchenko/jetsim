@@ -12,6 +12,8 @@ class Transfer(object):
         self.yscale = pixsize[0]
         self.zscale = pixsize[1]
         self.imsize = imsize
+        self.image = {'I': np.zeros(imsize), 'Q': np.zeros(imsize),
+                      'U': np.zeros(imsize), 'V': np.zeros(imsize)}
         # Arrays of coordinates
         y, z = np.meshgrid(np.arange(imsize[0]), np.arange(imsize[1]))
         y = y - imsize[0] / 2. + 0.5
@@ -39,23 +41,15 @@ class Transfer(object):
         for row in xrange(self.imsize[0]):
             yield self.iter_row(row)
 
-    def transfer(self, n=100):
+    def transfer(self, n=100, max_tau=None, max_delta=0.01):
         image = np.zeros(self.imsize)
         for row in self:
             for ray, pixel in row:
-                try:
-                    t1, t2 = self.jet.geometry.hit(ray)
-                    # dt = abs(t2 - t1) / n
-                    # ts = [t1 + i * dt for i in xrange(n)]
-                    # ps = [ray.point(t) for t in ts]
-                    p1 = ray.point(t1)
-                    p2 = ray.point(t2)
-                    dp = np.linalg.norm(p1 - p2)
-                    image[pixel] = dp
-                    print dp
-                except TypeError:
-                    dp = 0.
-                    image[pixel] = dp
+                stokes = self.jet.transfer_stokes_along_ray(ray, n=n,
+                                                            max_tau=max_tau,
+                                                            max_delta=max_delta)
+                for i, stok in enumerate('I', 'Q', 'U', 'V'):
+                    self.image[stok][pixel] = stokes[i]
         return image
 
     def transfer_along_ray(self, ps):
