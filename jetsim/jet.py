@@ -1,38 +1,20 @@
 import numpy as np
 from geometry import Cone
 from bfields import BFHelical
-from vfields import CentralVField
+from vfields import FlatVField
 from nfields import BKNField
-from utils import AlongBorderException
-
-eps = 10**(-5)
-m_e = 0
-e = 0
-c = 0
-
-# plasma frequency (for electrons)
-# nu_p = math.sqrt(n_e * e ** 2. / (math.pi * m_e))
-# larmor frequency (for electrons)
-# nu_B = e * B / (2. * math.pi * m_e * c)
-# eta_0 (for electrons)
-# eta_0 = math.pi * nu_p ** 2. * nu_B * m_e / c
-# k_0 (for electrons), nu - frequency
-# k_0 = math.pi * nu_p ** 2. * nu_B / (c * nu ** 2.)
-
-# emission coeff. (for electrons)
-# eta_I = eta_0*math.sin(theta)*(nu_B*math.sin(theta)/nu)**((s-1.)/2.)*(3.**(s/2.)/(2.*(s+1.)))*Gamma(s/4.+19./12.)*Gamma(s/4.-1./12.)
-# absorbtion coeff.
-# k_I = k_0*math.sin(theta)*(nu_B*math.sin(theta)/nu)**(s/2.)*(3.**((s+1.)/2.)/4.)*Gamma(s/4.+11./16.)*Gamma(s/4.+1./6.)
+from utils import AlongBorderException, k_I, source_func, m_e, q_e
 
 
+# All vectors returned by methods are in triangular coordinates
 class Jet(object):
     """
     Class that represents jet's physical properties: geometry, distribution of
     magnetic field, particle density, velocity flow.
     """
-    def __init__(self, geometry=Cone, bfield=BFHelical, vfield=CentralVField,
+    def __init__(self, geometry=Cone, bfield=BFHelical, vfield=FlatVField,
                  nfield=BKNField, geo_kwargs=None, bf_kwargs=None,
-                 vf_kwargs=None, nf_kwargs=None):
+                 vf_kwargs=None, nf_kwargs=None, m=m_e, q=q_e, s=2.5):
         if geo_kwargs is not None:
             self.geometry = geometry((0., 0., 0.,), (0., 0., 1.,), bf_kwargs)
         else:
@@ -49,6 +31,14 @@ class Jet(object):
             self.nfield = nfield(nf_kwargs)
         else:
             self.nfield = nfield()
+
+        # Particle's properties (move to method?)
+        self.m = m
+        self.q = q
+        self.s = s
+
+        # Frequency in observer frame
+        self.nu = None
 
     # TODO: If optical depth is Lorenz-invariant then traverse from front of jet
     # to tau=tau_max in observer frame first to set initial point.
@@ -77,12 +67,45 @@ class Jet(object):
             stokes = np.array(stokes)
         try:
             t1, t2 = self.geometry.hit(ray)
+            # 1) Make default n cells
             dt = abs(t2 - t1) / n
-            ts = [t1 + i * dt for i in xrange(n)]
-            ps = [ray.point(t) for t in ts]
+            # Parameters of edges of cells
+            t_edges = [t1 + i * dt for i in xrange(n)]
+            # Parametrs of centers of cells
+            t_cells = [t1 + (i + 0.5) * dt for i in xrange(n - 1)]
+            # Edges of cells
+            p_edges = [ray.point(t) for t in t_edges]
+            # Centers of cells
+            p_cells = [ray.point(t) for t in t_cells]
+            # 2) For each cell check that relative ratio of B, n, v in plasma
+            # rest frame less then user specified value ``max_delta``.
+            pass
+            # 3) Split cells in two where it is not so. Thus we have ``n`` +
+            # delta cells
+            pass
+            # 4) Going from front of jet inside and find tau = sum(k_I * dl)
+            # If tau < tau_max => OK. If not => use only first N cells where
+            # tau < tau_max
+            pass
+            # Here we got N ``t`` values in ts
+            # Now numerically integrate:
             # 1) Going from background into jet
+            pass
             # 2) Cycle inside jet
+            for i, p in enumerate(p_cells):
+                x, y, z = p
+                # Calculate physical distance between cell edges
+                dp = np.linalg.norm(p_edges[i + 1] - p_edges[i])
+                # Calculate optical depth
+                dtau = self.k_I(x, y, z, -ray.direction)
+                # Calculate source function
+                s_func = self.source_func_j(x, y, z, -ray.direction)
+                # This adds to stokes vector in current cell rest frame
+                dI = (s_func - stokes[0]) * dtau
+                stokes[0] = stokes[0] + dI
             # 3) Coming out of jet
+            # 4) Boost in observer rest frame
+
         # If ``hit`` returns ``None`` => no interception of ray with jet.
         except TypeError:
             result = stokes
@@ -131,9 +154,10 @@ class Jet(object):
         return (n + G * v * (G * n.dot(v) / (G + 1.) - 1.)) /\
                (G * (1. - n.dot(v)))
 
+    # FIXME: It is not direction but vector?
     def bf_j(self, x, y, z):
         """
-        Direction of B-filed in plasma rest-frame.
+        Direction of B-field in plasma rest-frame.
         """
         G = self.G(x, y, z)
         B = self.bf(x, y, z)
@@ -149,13 +173,34 @@ class Jet(object):
         """
         return self.nfield.n(x, y, z) / self.G(x, y, z)
 
-    def source_func_j(self, x, y, z):
+    def k_I(self, x, y, z, n):
+        """
+        Absorption coefficient in point (x, y, z) calculated in plasma rest
+        frame.
+        :params x, y, z:
+        :param n:
+            Vector of direction in observer rest frame.
+        :return:
+        """
+        n_j = self.nf_j(x, y, z)
+        B_j = self.bf_j(x, y, z)
+        n_j = self.n_j(n, x, y, z)
+        sin_theta = np.cross(n_j, B_j) / np.linalg.norm(B_j)
+        return k_I(self.nu, n_j, B_j, sin_theta, s=self.s, q=self.q, m=self.m)
+
+    def source_func_j(self, x, y, z, n):
         """
         Source function in point (x, y, z) calculated in plasma rest frame.
         :params x, y, z:
+        :param n:
+            Vector of direction in observer rest frame.
         :return:
         """
-        pass
+        n_j = self.nf_j(x, y, z)
+        B_j = self.bf_j(x, y, z)
+        n_j = self.n_j(n, x, y, z)
+        sin_theta = np.cross(n_j, B_j) / np.linalg.norm(B_j)
+        return source_func(self.nu, n_j, sin_theta, s=self.s, q=self.q, m=self.m)
 
     def k_I_j(self, x, y, z):
         """
