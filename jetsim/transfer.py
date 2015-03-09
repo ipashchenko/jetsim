@@ -1,9 +1,10 @@
 import math
 import numpy as np
-from geometry import Cone, Ray
+from geometry import Ray
 from utils import transfer_stokes
 
 
+# TODO: I need more fine grid close to BH.
 class Transfer(object):
     def __init__(self, jet, imsize, los_angle, pixsize=(1., 1.,)):
         self.jet = jet
@@ -22,7 +23,7 @@ class Transfer(object):
         jet_coordinates = image_coordinates.copy()
         jet_coordinates[..., 0] = image_coordinates[..., 0] * pixsize[0]
         jet_coordinates[..., 1] = image_coordinates[..., 1] * pixsize[1] /\
-                                  math.sin(self.jet.geometry.angle)
+            math.sin(self.jet.geometry.angle)
         # Add zero x-coordinate for points in (yz)-jet plane
         jet_coordinates = np.dstack((np.zeros(imsize), jet_coordinates))
         self.image_coordinates = image_coordinates
@@ -31,7 +32,7 @@ class Transfer(object):
     def iter_row(self, row):
         for column in xrange(self.imsize[1]):
             origin = self.jet_coordinates[row, column, ...]
-            yield (Ray(origin = origin, direction = self.los_direction),
+            yield (Ray(origin=origin, direction=self.los_direction),
                    (column, row))
 
     def __iter__(self):
@@ -44,9 +45,9 @@ class Transfer(object):
             for ray, pixel in row:
                 try:
                     t1, t2 = self.jet.geometry.hit(ray)
-                    dt = abs(t2 - t1) / n
-                    ts = [t1 + i * dt for i in xrange(n)]
-                    ps = [ray.point(t) for t in ts]
+                    # dt = abs(t2 - t1) / n
+                    # ts = [t1 + i * dt for i in xrange(n)]
+                    # ps = [ray.point(t) for t in ts]
                     p1 = ray.point(t1)
                     p2 = ray.point(t2)
                     dp = np.linalg.norm(p1 - p2)
@@ -73,6 +74,5 @@ class Transfer(object):
             stokes1 = transfer_stokes(stokes0, self.jet(ps[i]),
                                       self.jet(ps[i + 1]), -self.los_direction,
                                       self.jet.bf_j(ps[i + 1]))
-            stokes1 = stokes1 + np.array([self.jet.source_func_j(ps[i + 1]) * dtau - stokes1[0] * dtau,
-                                          0.,
-                                          0.])
+            stokes1 = stokes1 + np.array([self.jet.source_func_j(ps[i + 1]) *
+                                          dtau - stokes1[0] * dtau, 0., 0., 0.])
