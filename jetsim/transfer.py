@@ -5,6 +5,7 @@ from utils import transfer_stokes
 
 
 # TODO: I need more fine grid close to BH.
+# TODO: Keep redshift and cosmological stuff here?
 class Transfer(object):
     def __init__(self, jet, imsize, los_angle, pixsize=(1., 1.,)):
         self.jet = jet
@@ -52,21 +53,3 @@ class Transfer(object):
                     self.image[stok][pixel] = stokes[i]
         return image
 
-    def transfer_along_ray(self, ps):
-        """
-        Transfer stokes parameters along LOS using ``n`` specified points.
-        :param ps:
-        :return:
-        """
-        stokes1 = np.zeros(4, dtype=float)
-        for i in range(len(ps)):
-            dl = np.linalg.norm(ps[i], ps[i + 1])
-            k_I = self.jet.k_I_j(ps[i + 1])
-            dtau = k_I * dl
-            stokes0 = stokes1.copy()
-            # Boost stokes0 from RF0 to RF1
-            stokes1 = transfer_stokes(stokes0, self.jet(ps[i]),
-                                      self.jet(ps[i + 1]), -self.los_direction,
-                                      self.jet.bf_j(ps[i + 1]))
-            stokes1 = stokes1 + np.array([self.jet.source_func_j(ps[i + 1]) *
-                                          dtau - stokes1[0] * dtau, 0., 0., 0.])
