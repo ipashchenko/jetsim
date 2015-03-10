@@ -20,11 +20,11 @@ class FlatVField(VField):
     """
     def __init__(self, gamma0=10.):
         self.gamma0 = gamma0
+        # z-component of velocity in triangular coordinates
+        self.v_z = math.sqrt(1. - 1. / self.gamma0 ** 2.)
 
     def v(self, x, y, z):
-        # z-component of velocity in triangular coordinates
-        v_z = math.sqrt(1. - 1. / self.gamma0 ** 2.)
-        return  np.array([0., 0., v_z])
+        return  np.array([0., 0., self.v_z])
 
 
 class CentralVField(VField):
