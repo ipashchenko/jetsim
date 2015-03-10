@@ -22,13 +22,13 @@ class BField(object):
 
 
 # TODO: Add initialization based on initial pitch angle
-class BFHelical(object):
+class BFHelical(BField):
     """
     Class that represents helical B-field.
     """
-    def __init__(self, z0=1., bf_fi_0=10**(-1), bf_z_0=10**(-1),
+    def __init__(self, z_0=1., bf_fi_0=10**(-1), bf_z_0=10**(-1),
                  pitch_angle_0=None):
-        self.z0 = z0
+        self.z_0 = z_0
         self.bf_fi_0 = bf_fi_0
         self.bf_z_0 = bf_z_0
         self.pitch_angle_0 = pitch_angle_0
