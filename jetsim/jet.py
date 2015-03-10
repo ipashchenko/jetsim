@@ -91,6 +91,8 @@ class Jet(object):
             # Here we got N ``t`` values in ts
             # Now numerically integrate:
             # 1) Going from background into jet
+            # TODO: Do this outside ``Jet`` class! Here only transfer inside
+            # jet.
             pass
             # 2) Cycle inside jet
             for i, p in enumerate(p_cells):
@@ -216,3 +218,7 @@ class Jet(object):
         n_j = self.n_j(n, x, y, z)
         sin_theta = np.cross(n_j, B_j) / np.linalg.norm(B_j)
         return k_I(self.nu, nf_j, B_j, sin_theta, s=2.5, q=q_e, m=m_e)
+
+
+if __name__ == '__main__':
+    jet = Jet()
