@@ -1,9 +1,11 @@
+import math
 import numpy as np
 from geometry import Cone
 from bfields import BFHelical
 from vfields import FlatVField
 from nfields import BKNField
-from utils import AlongBorderException, k_I, source_func, m_e, q_e
+from utils import AlongBorderException, k_I, source_func, m_e, q_e,\
+    luminosity_distance
 
 
 # All vectors returned by methods are in triangular coordinates
@@ -14,10 +16,12 @@ class Jet(object):
     """
     def __init__(self, geometry=Cone, bfield=BFHelical, vfield=FlatVField,
                  nfield=BKNField, geo_kwargs=None, bf_kwargs=None,
-                 vf_kwargs=None, nf_kwargs=None, m=m_e, q=q_e, s=2.5):
+                 vf_kwargs=None, nf_kwargs=None, m=m_e, q=q_e, s=2.5, nu=None,
+                 z=0.):
         if geo_kwargs is not None:
             self.geometry = geometry((0., 0., 0.,), (0., 0., 1.,), bf_kwargs)
         else:
+            # Default opening angle is pi/6
             self.geometry = geometry((0., 0., 0.,), (0., 0., 1.,))
         if bf_kwargs is not None:
             self.bfield = bfield(bf_kwargs)
@@ -37,8 +41,11 @@ class Jet(object):
         self.q = q
         self.s = s
 
-        # Frequency in observer frame
-        self.nu = None
+        # Cosmological redshift
+        self.z = z
+        # Frequency in observer frame [Hz]
+        self.nu_obs = nu * 10. ** 9
+        self.nu = self.nu_obs / (1. + self.z)
 
     # TODO: If optical depth is Lorenz-invariant then traverse from front of jet
     # to tau=``tau_max`` in observer frame first to set initial point.
@@ -71,9 +78,9 @@ class Jet(object):
             # 1) Make default ``n`` cells
             dt = abs(t2 - t1) / n
             # Parameters of edges of cells
-            t_edges = [t1 + i * dt for i in xrange(n)]
+            t_edges = [min(t1, t2) + i * dt for i in xrange(n)]
             # Parametrs of centers of cells
-            t_cells = [t1 + (i + 0.5) * dt for i in xrange(n - 1)]
+            t_cells = [min(t1, t2) + (i + 0.5) * dt for i in xrange(n - 1)]
             # Edges of cells
             p_edges = [ray.point(t) for t in t_edges]
             # Centers of cells
@@ -96,18 +103,23 @@ class Jet(object):
             pass
             # 2) Cycle inside jet
             for i, p in enumerate(p_cells):
+                print i
                 x, y, z = p
                 # Calculate physical distance between cell edges
                 dp = np.linalg.norm(p_edges[i + 1] - p_edges[i])
                 # Calculate optical depth
-                dtau = self.k_I(x, y, z, -ray.direction) * dp
+                dtau = self.k_I_j(x, y, z, -ray.direction) * dp
                 # Calculate source function
                 s_func = self.source_func_j(x, y, z, -ray.direction)
                 # This adds to stokes vector in current cell rest frame
                 dI = (s_func - stokes[0]) * dtau
                 stokes[0] = stokes[0] + dI
             # 3) Coming out of jet
+                pass
             # 4) Boost in observer rest frame
+                pass
+
+            result = stokes
 
         # If ``hit`` returns ``None`` => no interception of ray with jet.
         except TypeError:
@@ -176,7 +188,7 @@ class Jet(object):
         """
         return self.nfield.n(x, y, z) / self.G(x, y, z)
 
-    def k_I(self, x, y, z, n):
+    def k_I_j(self, x, y, z, n):
         """
         Absorption coefficient in point (x, y, z) calculated in plasma rest
         frame.
@@ -185,11 +197,12 @@ class Jet(object):
             Vector of direction in observer rest frame.
         :return:
         """
-        n_j = self.nf_j(x, y, z)
+        nf_j = self.nf_j(x, y, z)
         B_j = self.bf_j(x, y, z)
         n_j = self.n_j(n, x, y, z)
-        sin_theta = np.cross(n_j, B_j) / np.linalg.norm(B_j)
-        return k_I(self.nu, n_j, B_j, sin_theta, s=self.s, q=self.q, m=self.m)
+        sin_theta = np.linalg.norm(np.cross(n_j, B_j)) / np.linalg.norm(B_j)
+        return k_I(self.nu, nf_j, np.linalg.norm(B_j), sin_theta, s=self.s,
+                   q=self.q, m=self.m)
 
     def source_func_j(self, x, y, z, n):
         """
@@ -202,23 +215,57 @@ class Jet(object):
         nf_j = self.nf_j(x, y, z)
         B_j = self.bf_j(x, y, z)
         n_j = self.n_j(n, x, y, z)
-        sin_theta = np.cross(n_j, B_j) / np.linalg.norm(B_j)
-        return source_func(self.nu, nf_j, sin_theta, s=self.s, q=self.q,
-                           m=self.m)
+        sin_theta = np.linalg.norm(np.cross(n_j, B_j)) / np.linalg.norm(B_j)
+        return source_func(self.nu, nf_j, np.linalg.norm(B_j), sin_theta,
+                           s=self.s, q=self.q, m=self.m)
 
-    def k_I_j(self, x, y, z, n):
+    # TODO: Make it coefficient on observer frame for ``tau`` calculation.
+    def k_I(self, x, y, z, n):
         """
         Absorbtion coefficient in point (x, y, z) calculated in plasma rest
         frame.
         :params x, y, z:
         :return:
         """
-        nf_j = self.nf_j(x, y, z)
-        B_j = self.bf_j(x, y, z)
-        n_j = self.n_j(n, x, y, z)
-        sin_theta = np.cross(n_j, B_j) / np.linalg.norm(B_j)
-        return k_I(self.nu, nf_j, B_j, sin_theta, s=2.5, q=q_e, m=m_e)
+        nf = self.nfield.n(x, y, z)
+        B = self.bfield.bf(x, y, z)
+        sin_theta = np.linalg.norm(np.cross(n, B)) / np.linalg.norm(B)
+        return k_I(self.nu, nf, np.linalg.norm(B), sin_theta, s=2.5, q=q_e,
+                   m=m_e)
 
 
 if __name__ == '__main__':
-    jet = Jet()
+    jet = Jet(nu=5., z=0.5)
+    from transfer import Transfer
+    transf = Transfer(jet, (10,10), math.pi/4)
+    origin = np.array([0., 0.5, 3.])
+    direction = transf.los_direction
+    from geometry import Ray
+    ray = Ray(origin, direction)
+    n = -np.array(direction)
+
+    t1, t2 = jet.geometry.hit(ray)
+    k=100
+    dt = abs(t2 - t1) / k
+    t_edges = [t2 + i * dt for i in xrange(k)]
+    t_cells = [min(t1, t2) + (i + 0.5) * dt for i in xrange(k - 1)]
+    p_edges = [ray.point(t) for t in t_edges]
+    p_cells = [ray.point(t) for t in t_cells]
+    i=50
+    p = p_cells[i]
+    x, y, z = p
+    dp = np.linalg.norm(p_edges[i + 1] - p_edges[i])
+    B_j = jet.bf_j(x, y, z)
+    nf_j = jet.nf_j(x, y, z)
+    nu = jet.nu
+    from utils import k_0, nu_plasma, nu_b
+    print "nu_plasma", nu_plasma(nf_j)
+    print "nu_b", nu_b(np.linalg.norm(B_j))
+    print "k_0", k_0(nu, nf_j, np.linalg.norm(B_j))
+
+    dtau = jet.k_I_j(x, y, z, n) * dp
+    print "dtau", dtau
+    s_func = jet.source_func_j(x, y, z, -ray.direction)
+    print "source_func", s_func
+
+    out_stokes = jet.transfer_stokes_along_ray(ray)
