@@ -2,12 +2,14 @@ import math
 import numpy as np
 
 
+# Parsec [cm]
+pc = 3.0857 * 10 ** 18
 # Mass of electron [g]
 m_e = 9.109382 * 10 ** (-28)
 # Mass of proton [g]
 m_p = 1.672621 * 10 ** (-24)
 # Charge of electron [C]
-q_e = -1.602176 * 10 ** (-19)
+q_e = 1.602176 * 10 ** (-19)
 # Charge of proton [C]
 q_p = 1.602176 * 10 ** (-19)
 # Speed of light [cm / s]
