@@ -1,7 +1,7 @@
 import math
 import numpy as np
 from geometry import Ray
-from utils import transfer_stokes
+from jet import Jet
 
 
 # TODO: I need more fine grid close to BH.
@@ -42,14 +42,22 @@ class Transfer(object):
         for row in xrange(self.imsize[0]):
             yield self.iter_row(row)
 
+    # TODO: Use multiprocessing
     def transfer(self, n=100, max_tau=None, max_delta=0.01):
-        image = np.zeros(self.imsize)
         for row in self:
             for ray, pixel in row:
+                print "processing pixel ", pixel
                 stokes = self.jet.transfer_stokes_along_ray(ray, n=n,
                                                             max_tau=max_tau,
                                                             max_delta=max_delta)
-                for i, stok in enumerate('I', 'Q', 'U', 'V'):
+                for i, stok in enumerate(['I', 'Q', 'U', 'V']):
                     self.image[stok][pixel] = stokes[i]
-        return image
+        return self.image
+
+
+if __name__ == '__main__':
+
+    jet = Jet(nu=5., z=0.5)
+    transfer = Transfer(jet, (50, 50,), math.pi/6., pixsize=(0.05, 0.05,))
+    image = transfer.transfer(n=50)
 
