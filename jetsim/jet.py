@@ -5,7 +5,7 @@ from bfields import BFHelical
 from vfields import FlatVField
 from nfields import BKNField
 from utils import AlongBorderException, k_I, source_func, m_e, q_e,\
-    luminosity_distance
+    transfer_stokes
 
 
 # All vectors returned by methods are in triangular coordinates
@@ -103,7 +103,6 @@ class Jet(object):
             pass
             # 2) Cycle inside jet
             for i, p in enumerate(p_cells):
-                print i
                 x, y, z = p
                 # Calculate physical distance between cell edges
                 dp = np.linalg.norm(p_edges[i + 1] - p_edges[i])
@@ -116,8 +115,11 @@ class Jet(object):
                 stokes[0] = stokes[0] + dI
             # 3) Coming out of jet
                 pass
-            # 4) Boost in observer rest frame
-                pass
+            # 4) Boost to observer rest frame
+            stokes = transfer_stokes(stokes, self.vfield.v(x, y, z),
+                                     np.zeros(3),
+                                     self.n_j(-ray.direction, x, y, z),
+                                     self.bf(x, y, z))
 
             result = stokes
 
