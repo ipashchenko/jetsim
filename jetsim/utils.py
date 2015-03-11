@@ -271,9 +271,10 @@ def doppler_factor(v1, v2, n1):
 # stokes1 = array([1., 0, 0, 0])
 def transfer_stokes(stokes1, v1, v2, n1, bf2):
     """
-    Transfer stokes vector from frame that has velocity v1 in observer frame to
-    frame that has velocity v2 in observer frame. Index 2 means value in second
-    (final) rest frame. Index 1 means value in first (initial) rest frame.
+    Transfer stokes vector from frame (1) that has velocity v1 in observer frame
+    to frame (2) that has velocity v2 in observer frame. Index 2 means value in
+    second (final) rest frame. Index 1 means value in first (initial) rest
+    frame.
 
     :param stokes1:
         Stokes vector in RF that has velocity v1 relative to observer frame.
@@ -296,6 +297,7 @@ def transfer_stokes(stokes1, v1, v2, n1, bf2):
     n2 =  (n1 + G2r1 * v2r1 * (G2r1 * n1.dot(v2r1) / (G2r1 + 1.) - 1.)) / \
           (G2r1 * (1. - n1.dot(v2r1)))
     D2r1 = 1. / (G2r1 * (1. - n1.dot(v2r1)))
+    print "D = ", D2r1
 
     I1, Q1, U1, V1 = stokes1
     LP1 = math.sqrt(Q1 ** 2. + U1 ** 2.)
@@ -310,9 +312,9 @@ def transfer_stokes(stokes1, v1, v2, n1, bf2):
     e2 = G2r1 * (e1 - (G2r1 / (G2r1 + 1)) * e1.dot(v2r1) * v2r1 +
                  np.cross(v2r1, np.cross(n1, e1)))
     # FIXME: There should be * (compare v1=0 v2~c)
-    I2 = I1 * D2r1 ** 3.
-    V2 = V1 * D2r1 ** 3.
-    LP2 = LP1 * D2r1 ** 3.
+    I2 = I1 / D2r1 ** 3.
+    V2 = V1 / D2r1 ** 3.
+    LP2 = LP1 / D2r1 ** 3.
     chi2 = math.acos(((bf2 - bf2.dot(n2) * n2) / np.linalg.norm(bf2 - bf2.dot(n2) * n2)).dot(e2 / np.linalg.norm(e2)))
     Q2 = LP2 * math.cos(2. * chi2)
     U2 = LP2 * math.sin(2. * chi2)
