@@ -361,7 +361,7 @@ def pc_to_mas(z):
     Return scale factor (mas in 1 pc)
     """
     # Angular distance in Mpc
-    d_a = 10 ** 6. * luminosity_distance(z, format='Mpc') / (1. + z ** 2.)
+    d_a = 10 ** 6. * luminosity_distance(z, format='Mpc') / (1. + z) ** 2.
     # Angle in radians
     angle = 1. / d_a
     return rad_to_mas * angle
@@ -372,5 +372,5 @@ def mas_to_pc(z):
     Return scale factor (pc in 1 mas)
     """
     # Angular distance in Mpc
-    d_a = 10 ** 6. * luminosity_distance(z, format='Mpc') / (1. + z ** 2.)
+    d_a = 10 ** 6. * luminosity_distance(z, format='Mpc') / (1. + z) ** 2.
     return rad_to_mas * d_a
