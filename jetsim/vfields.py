@@ -24,7 +24,7 @@ class FlatVField(VField):
         self.v_z = math.sqrt(1. - 1. / self.gamma0 ** 2.)
 
     def v(self, x, y, z):
-        return  np.array([0., 0., self.v_z])
+        return  np.array([0., 0., np.sign(z) * self.v_z])
 
 
 class CentralVField(VField):
