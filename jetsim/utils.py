@@ -2,6 +2,9 @@ import math
 import numpy as np
 
 
+mas_to_rad = 4.8481368 * 1E-09
+rad_to_mas = 1. / mas_to_rad
+
 # Parsec [cm]
 pc = 3.0857 * 10 ** 18
 # Mass of electron [g]
@@ -110,7 +113,7 @@ def k_0(nu, n, B, q=q_e, m=m_e):
         Coefficient ``k_0`` used in expression for absorption coefficient.
     """
     return math.pi * nu_plasma(n, q=q, m=m) ** 2. * nu_b(B, q=q, m=m) /\
-           (c * nu ** 2.)
+        (c * nu ** 2.)
 
 
 def eta_I(nu, n, B, sin_theta, s=2.5, q=q_e, m=m_e):
@@ -135,7 +138,7 @@ def eta_I(nu, n, B, sin_theta, s=2.5, q=q_e, m=m_e):
     return eta_0(n, B, q=q, m=m) * sin_theta *\
            (nu_b(B, q=q, m=m) * sin_theta / nu) ** ((s - 1.) / 2.) *\
            (3. ** (s / 2.) / (2. * (s + 1.))) *\
-           math.gamma(s / 4. + 19. / 12.) * math.gamma(s /4. - 1. / 12.)
+           math.gamma(s / 4. + 19. / 12.) * math.gamma(s / 4. - 1. / 12.)
 
 
 def k_I(nu, n, B, sin_theta, s=2.5, q=q_e, m=m_e):
@@ -184,6 +187,7 @@ def source_func(nu, n, B, sin_theta, s=2.5, q=q_e, m=m_e):
     """
     return eta_I(nu, n, B, sin_theta, s=s, q=q, m=m) / k_I(nu, n, B, sin_theta,
                                                            s=s, q=q, m=q)
+
 
 def velsum(v, u):
     """
@@ -269,6 +273,8 @@ def doppler_factor(v1, v2, n1):
 # v1 = np.array([0.0, 0, 0])
 # n1 = np.array([-sin(1/G), 0, cos(1/G)])
 # stokes1 = array([1., 0, 0, 0])
+# TODO: add optional arg ``n2`` - direction in final rest frame. Thus make
+# ``n1`` also optional.
 def transfer_stokes(stokes1, v1, v2, n1, bf2):
     """
     Transfer stokes vector from frame (1) that has velocity v1 in observer frame
@@ -294,10 +300,10 @@ def transfer_stokes(stokes1, v1, v2, n1, bf2):
     G2r1 = 1. / math.sqrt(1. - v2r1.dot(v2r1))
     # Direction of propagation in second RF.
     # array([-0.9999986 ,  0.        ,  0.00167561])
-    n2 =  (n1 + G2r1 * v2r1 * (G2r1 * n1.dot(v2r1) / (G2r1 + 1.) - 1.)) / \
-          (G2r1 * (1. - n1.dot(v2r1)))
+    n2 = (n1 + G2r1 * v2r1 * (G2r1 * n1.dot(v2r1) / (G2r1 + 1.) - 1.)) / \
+         (G2r1 * (1. - n1.dot(v2r1)))
     D2r1 = 1. / (G2r1 * (1. - n1.dot(v2r1)))
-    print "D = ", D2r1
+    # print "D = ", D2r1
 
     I1, Q1, U1, V1 = stokes1
     LP1 = math.sqrt(Q1 ** 2. + U1 ** 2.)
@@ -348,3 +354,23 @@ def transform_from_obs_to_plasma_rf(stokes, n, v):
     :return:
     """
     pass
+
+
+def pc_to_mas(z):
+    """
+    Return scale factor (mas in 1 pc)
+    """
+    # Angular distance in Mpc
+    d_a = 10 ** 6. * luminosity_distance(z, format='Mpc') / (1. + z ** 2.)
+    # Angle in radians
+    angle = 1. / d_a
+    return rad_to_mas * angle
+
+
+def mas_to_pc(z):
+    """
+    Return scale factor (pc in 1 mas)
+    """
+    # Angular distance in Mpc
+    d_a = 10 ** 6. * luminosity_distance(z, format='Mpc') / (1. + z ** 2.)
+    return rad_to_mas * d_a
