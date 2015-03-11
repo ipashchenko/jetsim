@@ -15,7 +15,7 @@ class Geometry(object):
 
 
 class Cone(Geometry):
-    def __init__(self, origin, direction, angle=math.pi / 6):
+    def __init__(self, origin, direction, angle=math.pi / 12.):
         self.origin = np.array(origin)
         self.direction = np.array(direction) / np.linalg.norm(np.array(direction))
         self.angle = float(angle)
@@ -33,19 +33,19 @@ class Cone(Geometry):
             2 * math.sin(angle) ** 2 * np.dot(ray.direction, direction) * np.dot(dp, direction)
         c = math.cos(angle) ** 2 * np.dot(expr2, expr2) - \
             math.sin(angle) ** 2 * np.dot(dp, direction) ** 2
-        print "a : ", a
-        print "b : ", b
-        print "c : ", c
+        # print "a : ", a
+        # print "b : ", b
+        # print "c : ", c
         d = b ** 2 - 4. * a * c
         if d < 0:
             print "No interceptions!"
             return None
         if a == 0:
             raise AlongBorderException
-        print "Descriminant : ", d
+        # print "Descriminant : ", d
         t1 = (-b + math.sqrt(d)) / (2. * a)
         t2 = (-b - math.sqrt(d)) / (2. * a)
-        print "Solutions : ", t1, t2
+        # print "Solutions : ", t1, t2
         #return ray.point(min(t1, t2)), ray.point(max(t1,t2))
         return t1, t2
 
