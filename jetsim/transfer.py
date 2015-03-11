@@ -1,7 +1,13 @@
 import math
+import time
 import numpy as np
+from multiprocessing import Pool
 from geometry import Ray
 from jet import Jet
+
+
+def unwrap_self_transfer(arg, **kwargs):
+    return Transfer.transfer_along_rays(*arg, **kwargs)
 
 
 # TODO: I need more fine grid close to BH.
@@ -46,18 +52,51 @@ class Transfer(object):
     def transfer(self, n=100, max_tau=None, max_delta=0.01):
         for row in self:
             for ray, pixel in row:
-                print "processing pixel ", pixel
+                # print "processing pixel ", pixel
                 stokes = self.jet.transfer_stokes_along_ray(ray, n=n,
                                                             max_tau=max_tau,
                                                             max_delta=max_delta)
                 for i, stok in enumerate(['I', 'Q', 'U', 'V']):
                     self.image[stok][pixel] = stokes[i]
-        return self.image
+
+    def transfer_along_rays(self, rays, pixels, n=100, max_tau=None,
+                            max_delta=0.01):
+        for ray, pixel in zip(rays, pixels):
+            print "processing pixel ", pixel
+            stokes = self.jet.transfer_stokes_along_ray(ray, n=n,
+                                                        max_tau=max_tau,
+                                                        max_delta=max_delta)
+            return stokes
+            # for i, stok in enumerate(['I', 'Q', 'U', 'V']):
+            #     print "adding to image stokes ", stok
+            #     print "value", stokes[i]
+            #     self.image[stok][pixel] = stokes[i]
+
+    def transfer_mp(self):
+        pool = Pool(processes=4)
+        rays_all = [[(r[0], r[1]) for r in row] for row in self]
+        rays_list = list()
+        pixels_list = list()
+        for i in range(len(rays_all)):
+            rays, pixels = zip(*rays_all[i])
+            rays = list(rays)
+            pixels = list(pixels)
+            rays_list.append(rays)
+            pixels_list.append(pixels)
+
+        result = pool.map(unwrap_self_transfer, zip([self]*len(rays_list),
+                                                    rays_list, pixels_list))
+        pool.close()
+        pool.join()
+        return result
 
 
 if __name__ == '__main__':
 
     jet = Jet(nu=5., z=0.5)
     transfer = Transfer(jet, (50, 50,), math.pi/6., pixsize=(0.05, 0.05,))
-    image = transfer.transfer(n=50)
-
+    t1 = time.time()
+    transfer.transfer(n=50)
+    # result = transfer.transfer_mp()
+    t2 = time.time()
+    print t2 - t1
