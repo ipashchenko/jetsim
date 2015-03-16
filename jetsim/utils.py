@@ -201,27 +201,6 @@ def velsum(v, u):
                                      (gamma_v / (1. + gamma_v)) * v.dot(u) * v)
 
 
-def luminosity_distance(z, H_0=73.0, omega_M=0.3, omega_V=0.7, format="cm"):
-    """
-    Given redshift z, Hubble constant H_0 [km/s/Mpc] and
-    density parameters omega_M and omega_V, returns luminosity
-    distance.
-    """
-
-    from scipy.integrate import quad
-
-    if format == "cm":
-        return 9.26 * 10.0 ** 27.0 * (H_0 / 100.0) ** (-1.) * (1. + z) *\
-               quad(lambda x: (omega_M * (1. + x ** 3) + omega_V) ** (-0.5),
-                    0, z)[0]
-    elif format == "Mpc":
-        return 3000.0 * (H_0 / 100.0) ** (-1.) * (1. + z) *\
-               quad(lambda x: (omega_M * (1. + x ** 3) + omega_V) ** (-0.5),
-                    0, z)[0]
-    else:
-        raise Exception('Format=\"cm\" or \"Mpc\"')
-
-
 def boost_direction(v1, v2, n1):
     """
     :param v1:
@@ -356,12 +335,35 @@ def transform_from_obs_to_plasma_rf(stokes, n, v):
     pass
 
 
+def comoving_transverse_distance(z, H_0=73.0, omega_M=0.3, omega_V=0.7,
+                                 format="pc"):
+    """
+    Given redshift ``z``, Hubble constant ``H_0`` [km/s/Mpc] and
+    density parameters ``omega_M`` and ``omega_V``, returns comoving transverse
+    distance (see arXiv:astro-ph/9905116v4 formula 14). Angular diameter
+    distance is factor (1 + z) lower and luminosity distance is the same factor
+    higher.
+
+    """
+    from scipy.integrate import quad
+    fmt_dict = {"cm": 9.26 * 10.0 ** 27.0, "pc": 3. * 10 ** 9, "Mpc": 3000.0}
+
+    result = (H_0 / 100.0) ** (-1.) * quad(lambda x: (omega_M * (1. + x ** 3) +
+                                                      omega_V) ** (-0.5),
+                                           0, z)[0]
+    try:
+        return fmt_dict[format] * result
+    except KeyError:
+        raise Exception('Format  \"pc\", \"cm\" or \"Mpc\"')
+
+
 def pc_to_mas(z):
     """
-    Return scale factor (mas in 1 pc)
+    Return scale factor that convert from parsecs to milliarcseconds .
+
     """
-    # Angular distance in Mpc
-    d_a = 10 ** 6. * luminosity_distance(z, format='Mpc') / (1. + z) ** 2.
+    # Angular distance in pc
+    d_a = comoving_transverse_distance(z, format='pc') / (1. + z)
     # Angle in radians
     angle = 1. / d_a
     return rad_to_mas * angle
@@ -369,8 +371,9 @@ def pc_to_mas(z):
 
 def mas_to_pc(z):
     """
-    Return scale factor (pc in 1 mas)
+    Return scale factor that convert from milliarcseconds to parsecs.
+
     """
-    # Angular distance in Mpc
-    d_a = 10 ** 6. * luminosity_distance(z, format='Mpc') / (1. + z) ** 2.
-    return rad_to_mas * d_a
+    # Angular distance in pc
+    d_a = comoving_transverse_distance(z, format='pc') / (1. + z)
+    return mas_to_rad * d_a
