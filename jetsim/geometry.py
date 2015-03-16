@@ -5,6 +5,7 @@ import numpy as np
 class AlongBorderException(Exception):
     pass
 
+
 class Geometry(object):
     """
     Class that represents different possible jet geometries and
@@ -15,9 +16,10 @@ class Geometry(object):
 
 
 class Cone(Geometry):
-    def __init__(self, origin, direction, angle=math.pi / 12.):
+    def __init__(self, origin, direction, angle=math.pi / 36.):
         self.origin = np.array(origin)
-        self.direction = np.array(direction) / np.linalg.norm(np.array(direction))
+        self.direction = np.array(direction) /\
+            np.linalg.norm(np.array(direction))
         self.angle = float(angle)
 
     def hit(self, ray):
@@ -30,7 +32,8 @@ class Cone(Geometry):
         a = math.cos(angle) ** 2 * np.dot(expr1, expr1) - \
             math.sin(angle) ** 2 * np.dot(ray.direction, direction) ** 2
         b = 2 * math.cos(angle) ** 2 * np.dot(expr1, expr2) - \
-            2 * math.sin(angle) ** 2 * np.dot(ray.direction, direction) * np.dot(dp, direction)
+            2 * math.sin(angle) ** 2 * np.dot(ray.direction, direction) *\
+            np.dot(dp, direction)
         c = math.cos(angle) ** 2 * np.dot(expr2, expr2) - \
             math.sin(angle) ** 2 * np.dot(dp, direction) ** 2
         # print "a : ", a
@@ -46,7 +49,7 @@ class Cone(Geometry):
         t1 = (-b + math.sqrt(d)) / (2. * a)
         t2 = (-b - math.sqrt(d)) / (2. * a)
         # print "Solutions : ", t1, t2
-        #return ray.point(min(t1, t2)), ray.point(max(t1,t2))
+        # return ray.point(min(t1, t2)), ray.point(max(t1,t2))
         return t1, t2
 
 
@@ -61,7 +64,8 @@ class Cylinder(Geometry):
 class Ray(object):
     def __init__(self, origin, direction):
         self.origin = np.array(origin)
-        self.direction = np.array(direction) / np.linalg.norm(np.array(direction))
+        self.direction = np.array(direction) /\
+            np.linalg.norm(np.array(direction))
 
     def point(self, t):
         return self.origin + self.direction * t
@@ -86,10 +90,10 @@ def get_interception(yz, angle, yscale=1., zscale=1., cone_origin=(0, 0, 0),
 
 
 def get_thickness(yz, angle, yscale=1., zscale=1., cone_origin=(0, 0, 0),
-                     cone_direction=(0, 0, 1), cone_angle=math.pi/6):
+                  cone_direction=(0, 0, 1), cone_angle=math.pi/6):
     try:
-        result = get_interception(yz=yz, angle=angle, yscale=yscale, zscale=zscale,
-                                  cone_origin=cone_origin,
+        result = get_interception(yz=yz, angle=angle, yscale=yscale,
+                                  zscale=zscale, cone_origin=cone_origin,
                                   cone_direction=cone_direction,
                                   cone_angle=cone_angle)
         print result
@@ -101,12 +105,15 @@ def get_thickness(yz, angle, yscale=1., zscale=1., cone_origin=(0, 0, 0),
             print "2 interceptions"
             # If there's two interceptions
             # If both interceptions with jet or with counterjet
-            if (result[1][2] > 0 and result[0][2] > 0) or (result[1][2] < 0 and result[0][2] < 0):
+            if (result[1][2] > 0 and result[0][2] > 0) or (result[1][2] < 0 and
+                                                           result[0][2] < 0):
                 print "both interceptions with jet or counterjet"
                 delta = result[1] - result[0]
                 thickness = np.linalg.norm(delta)
             # If one interception with jet and other with counter jet
-            elif (result[1][2] > 0 and result[0][2] < 0) or (result[1][2] < 0 and result[0][2] > 0):
+            elif (result[1][2] > 0 and result[0][2] < 0) or (result[1][2] < 0
+                                                             and result[0][2] >
+                                                             0):
                 print "one interc. with jet & other with counterjet"
                 thickness = None
             else:
@@ -116,4 +123,3 @@ def get_thickness(yz, angle, yscale=1., zscale=1., cone_origin=(0, 0, 0),
         thickness = 0
 
     return thickness
-
