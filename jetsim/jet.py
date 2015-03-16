@@ -16,8 +16,7 @@ class Jet(object):
     """
     def __init__(self, geometry=Cone, bfield=BFHelical, vfield=FlatVField,
                  nfield=BKNField, geo_kwargs=None, bf_kwargs=None,
-                 vf_kwargs=None, nf_kwargs=None, m=m_e, q=q_e, s=2.5, nu=None,
-                 z=0.):
+                 vf_kwargs=None, nf_kwargs=None, m=m_e, q=q_e, s=2.5):
         if geo_kwargs is not None:
             self.geometry = geometry((0., 0., 0.,), (0., 0., 1.,), bf_kwargs)
         else:
@@ -42,10 +41,35 @@ class Jet(object):
         self.s = s
 
         # Cosmological redshift
-        self.z = z
+        self.z = None
         # Frequency in observer frame [Hz]
-        self.nu_obs = nu * 10. ** 9
-        self.nu = self.nu_obs / (1. + self.z)
+        self.nu_obs = None
+        self.nu = None
+
+    def set_redshift(self, z):
+        """
+        Set cosmological redshift and shift observing frequency.
+
+        :param z:
+            Cosmological redshift of jet.
+
+        """
+        self.z = z
+        try:
+            self.nu = self.nu_obs / (1. + self.z)
+        except ValueError:
+            raise Exception("Set observation frequency using"
+                            "Jet.set_obs_frequency method!")
+
+    def set_obs_frequency(self, nu):
+        """
+        Set observing frequency.
+
+        :param nu:
+            Observing requency [GHz].
+
+        """
+        self.nu_obs = nu
 
     # TODO: If optical depth is Lorenz-invariant then traverse from front of jet
     # to tau=``tau_max`` in observer frame first to set initial point.
