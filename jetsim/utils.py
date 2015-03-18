@@ -377,3 +377,38 @@ def mas_to_pc(z):
     # Angular distance in pc
     d_a = comoving_transverse_distance(z, format='pc') / (1. + z)
     return mas_to_rad * d_a
+
+
+def generate_ndim_random_directions(n, k=1):
+    """
+    Generate ``k`` random unit vectors in n-dimensional space.
+
+    :param n:
+        Dimension of space.
+    :param k: (optional)
+        NUmber of vectors to generate.
+    :return:
+        List of k n-dim vectors.
+
+    :note:
+        http://stackoverflow.com/questions/6283080/random-unit-vector-in-multi-dimensional-space
+        by Jim Lewis
+
+    """
+    result = list()
+    vec_count = 0
+    while vec_count < k:
+        # Generate n uniformly distributed values a[0..n-1] over [-1, 1]
+        a = np.random.uniform(low=-1, high=1, size=n)
+        r_squared = sum(a ** 2.)
+        if 0 < r_squared <= 1:
+            # Normalize to length 1
+            b = a / math.sqrt(r_squared)
+            # Add vector b[0..n-1] to output list
+            result.append(b)
+            vec_count += 1
+        else:
+            # Reject this sample
+            continue
+
+    return result
