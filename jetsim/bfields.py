@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from utils import generate_ndim_random_directions
 
 
 # TODO: ``BFRandom`` can be initialized with some value at ``z_0`` or
@@ -55,10 +56,28 @@ class BFRandom(object):
     :param z_0: (optional)
         Distance at which referenced values are given [pc]. (default:
         ``1.``)
+    :param bf_0: (optional)
+        Value of B-field at reference distance [G]. (default: ``0.1``)
 
     """
-    def __init__(self, z_0=1.):
-        pass
+    def __init__(self, z_0=1., bf_0=0.1):
+        self.z_0 = z_0
+        self.bf_0 = bf_0
+
+    def generate_n_random_directions(self, n):
+        """
+        Generate n random directions.
+
+        :param n:
+            Number of directions to generate.
+        :return:
+            List of ``n`` random directions.
+
+        """
+        return generate_ndim_random_directions(3, k=n)
+
+    def bf(self, x, y, z):
+        return 
 
 
 # TODO: Add initialization based on initial pitch angle
