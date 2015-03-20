@@ -56,7 +56,7 @@ class Jet(object):
         """
         self.z = z
         try:
-            self.nu = self.nu_obs / (1. + self.z)
+            self.nu = self.nu_obs * (1. + self.z)
         except ValueError:
             raise Exception("Set observation frequency using"
                             "Jet.set_obs_frequency method!")
