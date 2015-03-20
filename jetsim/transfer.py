@@ -82,18 +82,12 @@ class Transfer(object):
                 for i, stok in enumerate(['I', 'Q', 'U', 'V']):
                     self.image[stok][pixel] = stokes[i]
 
-    def transfer_along_rays(self, rays, pixels, n=100, max_tau=None,
-                            max_delta=0.01):
-        for ray, pixel in zip(rays, pixels):
-            print "processing pixel ", pixel
+    def transfer_along_rays(self, rays, n=100, max_tau=None, max_delta=0.01):
+        for ray in rays:
             stokes = self.jet.transfer_stokes_along_ray(ray, n=n,
                                                         max_tau=max_tau,
                                                         max_delta=max_delta)
             return stokes
-            # for i, stok in enumerate(['I', 'Q', 'U', 'V']):
-            #     print "adding to image stokes ", stok
-            #     print "value", stokes[i]
-            #     self.image[stok][pixel] = stokes[i]
 
     def transfer_mp(self):
         pool = Pool(processes=4)
@@ -117,7 +111,7 @@ class Transfer(object):
 if __name__ == '__main__':
 
     jet = Jet()
-    transfer = Transfer(jet, los_angle=0.1, imsize=(100, 100,),
+    transfer = Transfer(jet, los_angle=0.2, imsize=(100, 100,),
                         pixsize=(0.0005, 0.0005,), z=0.1, nu_obs=5.)
     t1 = time.time()
     transfer.transfer(n=50)
