@@ -77,7 +77,7 @@ class BFRandom(object):
         return generate_ndim_random_directions(3, k=n)
 
     def bf(self, x, y, z):
-        return 
+        pass
 
 
 # TODO: Add initialization based on initial pitch angle
@@ -137,6 +137,6 @@ class BFHelical(BField):
         """
         bf_ord = self.bf_ord(x, y, z)
         return np.linalg.norm(bf_ord) * self.fraction_rnd * (1. / math.sqrt(3))\
-               * np.array([1. / math.sqrt(3),
-                           1. / math.sqrt(3),
-                           1. / math.sqrt(3)])
+            * np.array([1. / math.sqrt(3),
+                        1. / math.sqrt(3),
+                        1. / math.sqrt(3)])
