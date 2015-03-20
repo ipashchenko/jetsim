@@ -60,3 +60,6 @@ target/
 
 # txt-files
 *.txt
+
+# png-flles
+*.png
