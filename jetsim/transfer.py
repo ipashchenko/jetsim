@@ -5,6 +5,7 @@ from multiprocessing import Pool
 from geometry import Ray
 from jet import Jet
 from utils import mas_to_pc
+from beam import Beam
 
 
 def unwrap_self_transfer(arg, **kwargs):
@@ -61,6 +62,24 @@ class Transfer(object):
         self.image_coordinates = image_coordinates
         self.jet_coordinates = jet_coordinates
 
+    def image(self, stokes='I', beam=None):
+        """
+        Return image (optionally convolved with beam) for given stokes
+        parameter.
+
+        :param stokes: (optional)
+            Stokes parameter image to return. (default: 'I')
+        :param beam: (optional)
+            Instance of ``Beam`` class. If ``None`` then don't convolve.
+            (default: ``None``)
+        :return:
+            Numpy 2D-array.
+
+        """
+        if beam is not None:
+            return beam.convolve(self.image[stokes], mode='same')
+        return self.image[stokes]
+
     def iter_row(self, row):
         for column in xrange(self.imsize[1]):
             origin = self.jet_coordinates[row, column, ...]
@@ -113,8 +132,14 @@ if __name__ == '__main__':
     jet = Jet()
     transfer = Transfer(jet, los_angle=0.2, imsize=(100, 100,),
                         pixsize=(0.0005, 0.0005,), z=0.1, nu_obs=5.)
+    size = (100, 100,)
+    bmaj = 10.
+    bmin = 10.
+    bpa = 0.
+    beam = Beam(bmaj, bmin, bpa, size)
     t1 = time.time()
     transfer.transfer(n=50)
     # result = transfer.transfer_mp()
     t2 = time.time()
     print t2 - t1
+    image = transfer.image(beam=beam)
