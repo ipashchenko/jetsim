@@ -1,4 +1,3 @@
-import math
 import numpy as np
 from utils import generate_ndim_random_directions
 
@@ -98,7 +97,7 @@ class BFHelical(BField):
             Pitch angle of the helical magnetic field at ``z_0``.
 
     """
-    def __init__(self, z_0=1., bf_fi_0=10.**(-1.), bf_z_0=10.**(-1.),
+    def __init__(self, z_0=1., bf_fi_0=1., bf_z_0=1.,
                  pitch_angle_0=None, fraction_rnd=0.5):
         super(BFHelical, self).__init__(z_0=z_0, fraction_rnd=fraction_rnd)
         self.bf_fi_0 = bf_fi_0
@@ -136,7 +135,13 @@ class BFHelical(BField):
 
         """
         bf_ord = self.bf_ord(x, y, z)
-        return np.linalg.norm(bf_ord) * self.fraction_rnd * (1. / math.sqrt(3))\
-            * np.array([1. / math.sqrt(3),
-                        1. / math.sqrt(3),
-                        1. / math.sqrt(3)])
+        n_rnd = generate_ndim_random_directions()[0]
+        return np.linalg.norm(bf_ord) * self.fraction_rnd * n_rnd
+
+    def bf(self, x, y, z):
+        """
+        Vector of full magnetic field at N points (x, y, z) in rectangular
+        coordinates.
+
+        """
+        return self.bf_ord(x, y, z) + self.bf_rnd(x, y, z)
