@@ -11,7 +11,7 @@ class BKNField(NField):
     Class that describes Blandford-Konigle particle density with r**(-2)
     dependence on z-distance
     """
-    def __init__(self, z_0=1., n_0=1.):
+    def __init__(self, z_0=1., n_0=500.):
         self.z_0 = z_0
         self.n_0 = n_0
 
