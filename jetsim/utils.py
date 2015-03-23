@@ -307,34 +307,6 @@ def transfer_stokes(stokes1, v1, v2, n1, bf2):
     return np.array([I2, Q2, U2, V2])
 
 
-def transform_from_plasma_to_obs_rf(stokes, n, v):
-    """
-    :param stokes:
-        Iterable of I, Q, U, V values.
-    :param n:
-        Direction of propagation in observer rest frame.
-    :param v:
-        Vector of velocity of plasma rest frame relative to observer rest frame.
-    :return:
-    """
-    pass
-
-
-def transform_from_obs_to_plasma_rf(stokes, n, v):
-    """
-    Transform Stokes parameters from observer (lab) rest frame to plasma (jet)
-    rest frame.
-    :param stokes:
-        Iterable of I, Q, U, V values.
-    :param n:
-        Direction of propagation in observer rest frame.
-    :param v:
-        Vector of velocity in observer rest frame.
-    :return:
-    """
-    pass
-
-
 def comoving_transverse_distance(z, H_0=73.0, omega_M=0.3, omega_V=0.7,
                                  format="pc"):
     """
@@ -379,7 +351,7 @@ def mas_to_pc(z):
     return mas_to_rad * d_a
 
 
-def generate_ndim_random_directions(n, k=1):
+def generate_ndim_random_directions(n=3, k=1):
     """
     Generate ``k`` random unit vectors in n-dimensional space.
 
