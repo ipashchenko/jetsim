@@ -9,6 +9,8 @@ from utils import AlongBorderException, k_I, source_func, m_e, q_e,\
 
 
 # All vectors returned by methods are in triangular coordinates
+# FIXME: Does particle density transforms through G?
+# TODO: Use some symbols for direction in methods (like self.ubf)
 class Jet(object):
     """
     Class that represents jet's physical properties: geometry, distribution of
@@ -20,7 +22,7 @@ class Jet(object):
         if geo_kwargs is not None:
             self.geometry = geometry((0., 0., 0.,), (0., 0., 1.,), bf_kwargs)
         else:
-            # Default opening angle is pi/6
+            # Default opening angle is pi/36
             self.geometry = geometry((0., 0., 0.,), (0., 0., 1.,))
         if bf_kwargs is not None:
             self.bfield = bfield(bf_kwargs)
@@ -93,6 +95,8 @@ class Jet(object):
             neighbor cells. If fractional change is more then max_delta =>
             divide cell in two (recursevly).
         """
+        # Optical depth
+        tau = 0.
         if stokes is None:
             stokes = np.zeros(4, dtype=float)
         else:
@@ -128,10 +132,12 @@ class Jet(object):
             # 2) Cycle inside jet
             for i, p in enumerate(p_cells):
                 x, y, z = p
-                # Calculate physical distance between cell edges
-                dp = np.linalg.norm(p_edges[i + 1] - p_edges[i])
+                # Calculate physical distance between cell edges [cm]
+                dp = 3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
+                                                           p_edges[i])
                 # Calculate optical depth
                 dtau = self.k_I_j(x, y, z, -ray.direction) * dp
+                tau = tau + dtau
                 # Calculate source function
                 s_func = self.source_func_j(x, y, z, -ray.direction)
                 # This adds to stokes vector in current cell rest frame
@@ -139,6 +145,8 @@ class Jet(object):
                 stokes[0] = stokes[0] + dI
             # 3) Coming out of jet
                 pass
+            # Stokes I can't be negative
+            stokes[0][np.where(stokes[0] < 0)] = 0.
             # 4) Boost to observer rest frame
             stokes = transfer_stokes(stokes, self.vfield.v(x, y, z),
                                      np.zeros(3),
@@ -154,8 +162,9 @@ class Jet(object):
             # Going to max_tau if given or just traversing along border
             pass
 
-        return result
+        return result, tau
 
+    # TODO: One can use utils.doppler_factor function with ``v1`` = 0.
     def D(self, n, x, y, z):
         """
         Returns Doppler factor for point ``(x, y, z)`` and direction ``n`` in
@@ -168,6 +177,7 @@ class Jet(object):
         G = 1. / np.sqrt(1. - v.dot(v))
         return 1. / (G * (1. - n.dot(v)))
 
+    # TODO: I don't need this method?
     def G(self, x, y, z):
         v = self.vf(x, y, z)
         return 1. / np.sqrt(1. - v.dot(v))
@@ -180,9 +190,9 @@ class Jet(object):
         """
         return self.vfield.v(x, y, z)
 
-    def bf(self, x, y, z):
+    def bf_j(self, x, y, z):
         """
-        Returns vector of B-field of jet in observer frame.
+        Returns vector of B-field of jet in plasma rest frame.
         """
         return self.bfield.bf(x, y, z)
 
@@ -195,16 +205,24 @@ class Jet(object):
         return (n + G * v * (G * n.dot(v) / (G + 1.) - 1.)) /\
                (G * (1. - n.dot(v)))
 
-    # FIXME: It is not direction but vector?
-    def bf_j(self, x, y, z):
+    def nu_j(self, n, x, y, z):
         """
-        Direction of B-field in plasma rest-frame.
+        Frequency that corresponds to ``nu_obs`` in plasma rest frame.
+        """
+        return self.nu / self.D(n, x, y, z)
+
+    # TODO: Use (7) if Lyutikov et al. 2005
+    def bf(self, x, y, z):
+        """
+        Direction (unit vector) of B-field in observer rest-frame.
         """
         G = self.G(x, y, z)
-        B = self.bf(x, y, z)
+        B_j = self.bf_j(x, y, z)
+        B_j = B_j / np.linalg.norm(B_j)
         v = self.vf(x, y, z)
-        return ((1. + G) * B + G ** 2. * B.dot(v) * v) /\
-               ((1. + G) * np.sqrt(1. + G ** 2. * (B.dot(v)) ** 2.))
+        return (1. / math.sqrt(1. - np.dot(B_j, v) ** 2.)) * (B_j - (G / (1. + G)) * np.dot(B_j, v) * v)
+        #return ((1. + G) * B + G ** 2. * B.dot(v) * v) /\
+        #       ((1. + G) * np.sqrt(1. + G ** 2. * (B.dot(v)) ** 2.))
 
     def nf_j(self, x, y, z):
         """
@@ -226,8 +244,9 @@ class Jet(object):
         nf_j = self.nf_j(x, y, z)
         B_j = self.bf_j(x, y, z)
         n_j = self.n_j(n, x, y, z)
+        nu_j = self.nu_j(n, x, y, z)
         sin_theta = np.linalg.norm(np.cross(n_j, B_j)) / np.linalg.norm(B_j)
-        return k_I(self.nu, nf_j, np.linalg.norm(B_j), sin_theta, s=self.s,
+        return k_I(nu_j, nf_j, np.linalg.norm(B_j), sin_theta, s=self.s,
                    q=self.q, m=self.m)
 
     def source_func_j(self, x, y, z, n):
@@ -241,11 +260,13 @@ class Jet(object):
         nf_j = self.nf_j(x, y, z)
         B_j = self.bf_j(x, y, z)
         n_j = self.n_j(n, x, y, z)
+        nu_j = self.nu_j(n, x, y, z)
         sin_theta = np.linalg.norm(np.cross(n_j, B_j)) / np.linalg.norm(B_j)
-        return source_func(self.nu, nf_j, np.linalg.norm(B_j), sin_theta,
+        return source_func(nu_j, nf_j, np.linalg.norm(B_j), sin_theta,
                            s=self.s, q=self.q, m=self.m)
 
     # TODO: Make it coefficient on observer frame for ``tau`` calculation.
+    # TODO: Caution! self.bf is direction!
     def k_I(self, x, y, z, n):
         """
         Absorbtion coefficient in point (x, y, z) calculated in plasma rest
@@ -263,7 +284,7 @@ class Jet(object):
 if __name__ == '__main__':
     jet = Jet(nu=5., z=0.5)
     from transfer import Transfer
-    transf = Transfer(jet, (10,10), math.pi/4)
+    transf = Transfer(jet, (10, 10,), math.pi/4)
     origin = np.array([0., 0.5, 3.])
     direction = transf.los_direction
     from geometry import Ray
@@ -271,13 +292,13 @@ if __name__ == '__main__':
     n = -np.array(direction)
 
     t1, t2 = jet.geometry.hit(ray)
-    k=100
+    k = 100
     dt = abs(t2 - t1) / k
     t_edges = [t2 + i * dt for i in xrange(k)]
     t_cells = [min(t1, t2) + (i + 0.5) * dt for i in xrange(k - 1)]
     p_edges = [ray.point(t) for t in t_edges]
     p_cells = [ray.point(t) for t in t_cells]
-    i=50
+    i = 50
     p = p_cells[i]
     x, y, z = p
     dp = np.linalg.norm(p_edges[i + 1] - p_edges[i])
