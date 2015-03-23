@@ -27,24 +27,29 @@ class Transfer(object):
     :param pixsize:
         Tuple of pixel sizes in mas for each of 2 map dimensions.
     :param z: (optional)
-        Cosmological redshift.
+        Cosmological redshift. (default: ``0.5``)
     :param nu_obs: (optional)
-        Observing frequency [GHz].
+        Observing frequency [GHz]. (default: ``5.``)
+
     """
-    def __init__(self, jet, los_angle, imsize, pixsize, z=0.5, nu_obs=5.):
+    def __init__(self, jet, los_angle, imsize, pixsize, z=0.5, nu_obs=5.,
+                 zoom=4):
+        self.zoom = zoom
         self.jet = jet
         self.jet.set_obs_frequency(nu_obs)
         self.jet.set_redshift(z)
         self.los_angle = los_angle
         self.los_direction = (math.sin(los_angle), 0, -math.cos(los_angle))
+        # Number of pc in one pixel
         self.yscale = pixsize[0] * mas_to_pc(z)
         self.zscale = pixsize[1] * mas_to_pc(z)
         self.pixsize = pixsize
         self.imsize = imsize
         self.z = z
         self.nu_obs = nu_obs
-        self.image = {'I': np.zeros(imsize), 'Q': np.zeros(imsize),
-                      'U': np.zeros(imsize), 'V': np.zeros(imsize)}
+        self._image = {'I': np.zeros(imsize), 'Q': np.zeros(imsize),
+                       'U': np.zeros(imsize), 'V': np.zeros(imsize)}
+        self._tau = np.zeros(imsize)
         # Arrays of coordinates
         y, z = np.meshgrid(np.arange(imsize[0]), np.arange(imsize[1]))
         y = y - imsize[0] / 2. + 0.5
@@ -77,8 +82,8 @@ class Transfer(object):
 
         """
         if beam is not None:
-            return beam.convolve(self.image[stokes], mode='same')
-        return self.image[stokes]
+            return beam.convolve(self._image[stokes])
+        return self._image[stokes]
 
     def iter_row(self, row):
         for column in xrange(self.imsize[1]):
@@ -94,12 +99,19 @@ class Transfer(object):
     def transfer(self, n=100, max_tau=None, max_delta=0.01):
         for row in self:
             for ray, pixel in row:
+                if abs(pixel[0] - self.imsize[0] / 2.) > self.imsize[0] / (2. * self.zoom):
+                    print "Skip pixel because of zooming"
+                    continue
+                if abs(pixel[1] - self.imsize[1] / 2.) > self.imsize[1] / (2. * self.zoom):
+                    print "Skip pixel because of zooming"
+                    continue
                 # print "processing pixel ", pixel
-                stokes = self.jet.transfer_stokes_along_ray(ray, n=n,
-                                                            max_tau=max_tau,
-                                                            max_delta=max_delta)
+                stokes, tau = self.jet.transfer_stokes_along_ray(ray, n=n,
+                                                                 max_tau=max_tau,
+                                                                 max_delta=max_delta)
                 for i, stok in enumerate(['I', 'Q', 'U', 'V']):
-                    self.image[stok][pixel] = stokes[i]
+                    self._image[stok][pixel] = stokes[i]
+                    self._tau[pixel] = tau
 
     def transfer_along_rays(self, rays, n=100, max_tau=None, max_delta=0.01):
         for ray in rays:
@@ -130,15 +142,15 @@ class Transfer(object):
 if __name__ == '__main__':
 
     jet = Jet()
-    transfer = Transfer(jet, los_angle=0.2, imsize=(100, 100,),
-                        pixsize=(0.0005, 0.0005,), z=0.1, nu_obs=5.)
-    size = (100, 100,)
-    bmaj = 10.
-    bmin = 10.
+    transfer = Transfer(jet, los_angle=0.4, imsize=(400, 400,),
+                        pixsize=(0.000125, 0.000125,), z=0.5, nu_obs=1., zoom=8)
+    size = (400, 400,)
+    bmaj = 20.
+    bmin = 20.
     bpa = 0.
     beam = Beam(bmaj, bmin, bpa, size)
     t1 = time.time()
-    transfer.transfer(n=50)
+    transfer.transfer(n=100)
     # result = transfer.transfer_mp()
     t2 = time.time()
     print t2 - t1
