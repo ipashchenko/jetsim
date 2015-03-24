@@ -77,7 +77,7 @@ class Jet(object):
     # to tau=``tau_max`` in observer frame first to set initial point.
     # TODO: Add option of choosing ``n`` using only ``max_delta`` & ``max_tau``.
     def transfer_stokes_along_ray(self, ray, stokes=None, n=100, max_tau=None,
-                                  max_delta=0.01):
+                                  max_delta=0.01, max_dtau=1.):
         """
         Transfer stokes vector along given ray.
 
@@ -137,11 +137,21 @@ class Jet(object):
                                                            p_edges[i])
                 # Calculate optical depth
                 dtau = self.k_I_j(x, y, z, -ray.direction) * dp
+                if dtau > max_dtau:
+                    # Split this cell in several recursevely
+                    pass
                 tau = tau + dtau
                 # Calculate source function
                 s_func = self.source_func_j(x, y, z, -ray.direction)
                 # This adds to stokes vector in current cell rest frame
+                print "Processing ", i, p
+                print "dp ", dp
+                print "dtau ", dtau, "tau ", tau
+                print "s_func ", s_func
                 dI = (s_func - stokes[0]) * dtau
+                print "dI ", dI, "I ", stokes[0]
+                if dI < 0:
+                    dI = 0
                 stokes[0] = stokes[0] + dI
             # 3) Coming out of jet
                 pass

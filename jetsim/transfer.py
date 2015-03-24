@@ -100,12 +100,12 @@ class Transfer(object):
         for row in self:
             for ray, pixel in row:
                 if abs(pixel[0] - self.imsize[0] / 2.) > self.imsize[0] / (2. * self.zoom):
-                    print "Skip pixel because of zooming"
                     continue
                 if abs(pixel[1] - self.imsize[1] / 2.) > self.imsize[1] / (2. * self.zoom):
-                    print "Skip pixel because of zooming"
                     continue
-                # print "processing pixel ", pixel
+                print "================="
+                print "processing pixel ", pixel
+                print "================="
                 stokes, tau = self.jet.transfer_stokes_along_ray(ray, n=n,
                                                                  max_tau=max_tau,
                                                                  max_delta=max_delta)
@@ -143,14 +143,14 @@ if __name__ == '__main__':
 
     jet = Jet()
     transfer = Transfer(jet, los_angle=0.4, imsize=(400, 400,),
-                        pixsize=(0.000125, 0.000125,), z=0.5, nu_obs=1., zoom=8)
+                        pixsize=(0.000125, 0.000125,), z=0.5, nu_obs=1., zoom=16)
     size = (400, 400,)
     bmaj = 20.
     bmin = 20.
     bpa = 0.
     beam = Beam(bmaj, bmin, bpa, size)
     t1 = time.time()
-    transfer.transfer(n=100)
+    transfer.transfer(n=50)
     # result = transfer.transfer_mp()
     t2 = time.time()
     print t2 - t1
