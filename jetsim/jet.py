@@ -174,6 +174,105 @@ class Jet(object):
 
         return result, tau
 
+    def calculate_vectorized(self, plist, p_edges, n):
+        parray = np.asarray(plist)
+        # Calcualate physical depth of each cell
+        dps = np.array([3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
+                                                              p_edges[i]) for i
+                        in xrange(len(p_edges)-1)])
+        # Calculate optical depths of each cell
+        dtaus = self.k_I_j_vec(parray, n) * dps
+        # Calculate B_j values
+        bvalues = np.linalg.norm(self.bf_j_vec(parray), axis=1)
+        gammas = self.G_vec(parray)
+        nfs = self.nf_j_vec(parray)
+        ks = self.k_I_j_vec(parray, n)
+        # print "dp ", dps
+        # print "dtaus ", dtaus
+        # print "k_I ", ks
+        # print "bvalues ", bvalues
+        # print "gammas ", gammas
+        # print "nfs ", nfs
+
+    def create_ray(self, ray, stokes=None, n=100, max_tau=None, max_delta=0.01,
+                   max_dtau=1.):
+        """
+        Create sequence of points which use for intergation.
+        """
+        try:
+            t1, t2 = self.geometry.hit(ray)
+            # 1) Make default ``n`` cells
+            dt = abs(t2 - t1) / n
+            # Parameters of edges of cells
+            t_edges = [min(t1, t2) + i * dt for i in xrange(n)]
+            # Parametrs of centers of cells
+            t_cells = [min(t1, t2) + (i + 0.5) * dt for i in xrange(n - 1)]
+            # Edges of cells
+            p_edges = [ray.point(t) for t in t_edges]
+            # Centers of cells
+            p_cells = [ray.point(t) for t in t_cells]
+            # 2) For each cell check that relative ratio of B, n, v in plasma
+            # rest frame less then user specified value ``max_delta``.
+            pass
+            # 3) Split cells in two where it is not so. Thus we have ``n`` +
+            # delta cells
+            pass
+            # 4) Going from front of jet inside and find tau = sum(k_I * dl)
+            # If tau < tau_max => OK. If not => use only first N cells where
+            # tau < tau_max
+            pass
+            # Here we got N ``t`` values in ts
+            # Now numerically integrate:
+            # 1) Going from background into jet
+            # TODO: Do this outside ``Jet`` class! Here only transfer inside
+            # jet.
+            pass
+            # 2) Cycle inside jet
+            for i, p in enumerate(p_cells):
+                x, y, z = p
+                # Calculate physical distance between cell edges [cm]
+                dp = 3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
+                                                           p_edges[i])
+                # Calculate optical depth
+                dtau = self.k_I_j(x, y, z, -ray.direction) * dp
+                if dtau > max_dtau:
+                    # Split this cell in several recursevely
+                    pass
+                tau = tau + dtau
+                # Calculate source function
+                s_func = self.source_func_j(x, y, z, -ray.direction)
+                # This adds to stokes vector in current cell rest frame
+                print "Processing ", i, p
+                print "dp ", dp
+                print "dtau ", dtau, "tau ", tau
+                print "s_func ", s_func
+                dI = (s_func - stokes[0]) * dtau
+                print "dI ", dI, "I ", stokes[0]
+                if dI < 0:
+                    dI = 0
+                stokes[0] = stokes[0] + dI
+                # 3) Coming out of jet
+                pass
+            # Stokes I can't be negative
+            stokes[0][np.where(stokes[0] < 0)] = 0.
+            # 4) Boost to observer rest frame
+            stokes = transfer_stokes(stokes, self.vfield.v(x, y, z),
+                                     np.zeros(3),
+                                     self.n_j(-ray.direction, x, y, z),
+                                     self.bf(x, y, z))
+
+            result = stokes
+
+        # If ``hit`` returns ``None`` => no interception of ray with jet.
+        except TypeError:
+            result = stokes
+        except AlongBorderException:
+            # Going to max_tau if given or just traversing along border
+            pass
+
+        return result, tau
+
+
     # TODO: One can use utils.doppler_factor function with ``v1`` = 0.
     def D(self, n, x, y, z):
         """
@@ -187,10 +286,27 @@ class Jet(object):
         G = 1. / np.sqrt(1. - v.dot(v))
         return 1. / (G * (1. - n.dot(v)))
 
+    def D_vec(self, n, ps):
+        """
+        Returns Doppler factors for points ``ps`` and direction ``n`` in
+        observer frame.
+        :param n:
+        :params ps:
+        :return:
+        """
+        vs = self.vf_vec(ps)
+        Gs = 1. / np.sqrt(1. - np.einsum('ij,ij->i', vs, vs))
+        return 1. / (Gs * (1. - vs.dot(n)))
+
     # TODO: I don't need this method?
     def G(self, x, y, z):
         v = self.vf(x, y, z)
         return 1. / np.sqrt(1. - v.dot(v))
+
+    # TODO: I don't need this method?
+    def G_vec(self, ps):
+        vs = self.vf_vec(ps)
+        return 1. / np.sqrt(1. - np.einsum('ij,ij->i', vs, vs))
 
     def vf(self, x, y, z):
         """
@@ -200,11 +316,20 @@ class Jet(object):
         """
         return self.vfield.v(x, y, z)
 
+    def vf_vec(self, ps):
+        return self.vfield.v_vec(ps)
+
     def bf_j(self, x, y, z):
         """
         Returns vector of B-field of jet in plasma rest frame.
         """
         return self.bfield.bf(x, y, z)
+
+    def bf_j_vec(self, ps):
+        """
+        Returns vectors of B-field of jet in plasma rest frame.
+        """
+        return self.bfield.bf_vec(ps)
 
     def n_j(self, n, x, y, z):
         """
@@ -215,11 +340,24 @@ class Jet(object):
         return (n + G * v * (G * n.dot(v) / (G + 1.) - 1.)) /\
                (G * (1. - n.dot(v)))
 
+    def n_j_vec(self, n, ps):
+        """
+        Direction in plasma rest-frame.
+        """
+        vs = self.vf_vec(ps)
+        Gs = 1. / np.sqrt(1. - np.einsum('ij,ij->i', vs, vs))
+        Gs_ = Gs[:, np.newaxis]
+        return (n + Gs_ * vs * (Gs * vs.dot(n) / (Gs + 1.) - 1.)[:, np.newaxis]) / \
+               (Gs * (1. - vs.dot(n)))[:, np.newaxis]
+
     def nu_j(self, n, x, y, z):
         """
         Frequency that corresponds to ``nu_obs`` in plasma rest frame.
         """
         return self.nu / self.D(n, x, y, z)
+
+    def nu_j_vec(self, n, ps):
+        return self.nu / self.D_vec(n, ps)
 
     # TODO: Use (7) if Lyutikov et al. 2005
     def bf(self, x, y, z):
@@ -242,6 +380,9 @@ class Jet(object):
         """
         return self.nfield.n(x, y, z) / self.G(x, y, z)
 
+    def nf_j_vec(self, ps):
+        return self.nfield.n_vec(ps) / self.G_vec(ps)
+
     def k_I_j(self, x, y, z, n):
         """
         Absorption coefficient in point (x, y, z) calculated in plasma rest
@@ -259,6 +400,24 @@ class Jet(object):
         return k_I(nu_j, nf_j, np.linalg.norm(B_j), sin_theta, s=self.s,
                    q=self.q, m=self.m)
 
+    def k_I_j_vec(self, ps, n):
+        """
+        Absorption coefficients in points ``ps`` calculated in plasma rest
+        frame.
+        :params ps:
+        :param n:
+            Vector of direction in observer rest frame.
+        :return:
+        """
+        nf_j_vec = self.nf_j_vec(ps)
+        B_j_vec = self.bf_j_vec(ps)
+        n_j_vec = self.n_j_vec(n, ps)
+        nu_j_vec = self.nu_j_vec(n, ps)
+        sin_theta = np.linalg.norm(np.cross(n_j_vec, B_j_vec)) /\
+                    np.linalg.norm(B_j_vec, axis=1)
+        return k_I(nu_j_vec, nf_j_vec, np.linalg.norm(B_j_vec, axis=1),
+                   sin_theta, s=self.s, q=self.q, m=self.m)
+
     def source_func_j(self, x, y, z, n):
         """
         Source function in point (x, y, z) calculated in plasma rest frame.
@@ -274,6 +433,23 @@ class Jet(object):
         sin_theta = np.linalg.norm(np.cross(n_j, B_j)) / np.linalg.norm(B_j)
         return source_func(nu_j, nf_j, np.linalg.norm(B_j), sin_theta,
                            s=self.s, q=self.q, m=self.m)
+
+    def source_func_j_vec(self, ps, n):
+        """
+        Source function in points ``ps`` calculated in plasma rest frame.
+        :param ps:
+        :param n:
+            Vector of direction in observer rest frame.
+        :return:
+        """
+        nf_j_vec = self.nf_j_vec(ps)
+        B_j_vec = self.bf_j_vec(ps)
+        n_j_vec = self.n_j_vec(n, ps)
+        nu_j_vec = self.nu_j_vec(n, ps)
+        sin_theta = np.linalg.norm(np.cross(n_j_vec, B_j_vec)) / \
+                    np.linalg.norm(B_j_vec, axis=1)
+        return source_func(nu_j_vec, nf_j_vec, np.linalg.norm(B_j_vec),
+                           sin_theta, s=self.s, q=self.q, m=self.m)
 
     # TODO: Make it coefficient on observer frame for ``tau`` calculation.
     # TODO: Caution! self.bf is direction!
@@ -292,17 +468,17 @@ class Jet(object):
 
 
 if __name__ == '__main__':
-    jet = Jet(nu=5., z=0.5)
+    jet = Jet()
     from transfer import Transfer
-    transf = Transfer(jet, (10, 10,), math.pi/4)
-    origin = np.array([0., 0.5, 3.])
+    transf = Transfer(jet,  math.pi/4, (10, 10,), (0.1, 0.1,))
+    origin = np.array([0., 0.1, 9.])
     direction = transf.los_direction
     from geometry import Ray
     ray = Ray(origin, direction)
     n = -np.array(direction)
 
     t1, t2 = jet.geometry.hit(ray)
-    k = 100
+    k = 10
     dt = abs(t2 - t1) / k
     t_edges = [t2 + i * dt for i in xrange(k)]
     t_cells = [min(t1, t2) + (i + 0.5) * dt for i in xrange(k - 1)]
