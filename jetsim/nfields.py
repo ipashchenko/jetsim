@@ -5,6 +5,9 @@ class NField(object):
     def n(self, x, y, z):
         raise NotImplementedError
 
+    def n_vec(self, ps):
+        raise NotImplementedError
+
 
 class BKNField(NField):
     """
@@ -17,3 +20,12 @@ class BKNField(NField):
 
     def n(self, x, y, z):
         return self.n_0 * (self.z_0 / z) ** 2.
+
+    def n_vec(self, ps):
+        """
+        :param ps:
+            Numpy array with shape (N, 3,) where N is the number of points.
+        :return:
+            Numpy array of values in N points.
+        """
+        return self.n_0 * (self.z_0 / ps[:, 2]) ** 2.
