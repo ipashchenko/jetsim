@@ -37,7 +37,7 @@ def nu_plasma(n, q=q_e, m=m_e):
     :return:
         Plasma frequency [Hz].
     """
-    return math.sqrt(n * q ** 2. / (math.pi * m))
+    return np.sqrt(n * q ** 2. / (math.pi * m))
 
 
 # Larmor frequency (default - for electrons)
