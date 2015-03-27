@@ -30,9 +30,25 @@ class BField(object):
         """
         raise NotImplementedError
 
+    def bf_ord_vec(self, ps):
+        """
+        Vectors of ordered B-field component at N points in rectangular
+        coordinates.
+
+        """
+        raise NotImplementedError
+
     def bf_rnd(self, x, y, z):
         """
         Vector of random B-field component at N points (x, y, z) in rectangular
+        coordinates.
+
+        """
+        raise NotImplementedError
+
+    def bf_rnd_vec(self, ps):
+        """
+        Vectors of random B-field component at N points in rectangular
         coordinates.
 
         """
@@ -45,6 +61,14 @@ class BField(object):
 
         """
         return self.bf_ord(x, y, z) + self.bf_rnd(x, y, z)
+
+    def bf_vec(self, ps):
+        """
+        Vectors of full magnetic field at N points in rectangular
+        coordinates.
+
+        """
+        return self.bf_ord_vec(ps) + self.bf_rnd_vec(ps)
 
 
 # That class describes different types of randomness for B-fields.
@@ -111,12 +135,26 @@ class BFHelical(BField):
         """
         return self.bf_fi_0 * self.z_0 / z
 
+    def bf_fi_vec(self, ps):
+        """
+        Fi-components of B-field as function of z-cylinder coordinates ``z``.
+
+        """
+        return self.bf_fi_0 * self.z_0 / ps[:, 2]
+
     def bf_z(self, x, y, z):
         """
         Z-component of B-field as function of z-cylinder coordinate ``z``.
 
         """
         return self.bf_z_0 * (self.z_0 / z) ** 2.
+
+    def bf_z_vec(self, ps):
+        """
+        Z-components of B-field as function of z-cylinder coordinate ``z``.
+
+        """
+        return self.bf_z_0 * (self.z_0 / ps[:, 2]) ** 2.
 
     def bf_ord(self, x, y, z):
         """
@@ -128,6 +166,21 @@ class BFHelical(BField):
                          self.bf_fi(x, y, z) * x / np.sqrt(x * x + y * y),
                          self.bf_z(x, y, z)])
 
+    def bf_ord_vec(self, ps):
+        """
+        Vectors of ordered B-field components at N points in rectangular
+        coordinates.
+
+        """
+
+        xs = ps[:, 0]
+        ys = ps[:, 1]
+        zs = ps[:, 2]
+        bx = -self.bf_z_vec(ps) * ys / np.sqrt(xs * xs + ys * ys)
+        by = self.bf_fi_vec(ps) * xs / np.sqrt(xs * xs + ys * ys)
+        bz = self.bf_z_vec(ps)
+        return np.asarray((bx, by, bz,)).T
+
     def bf_rnd(self, x, y, z):
         """
         Vector of random B-field component at N points (x, y, z) in rectangular
@@ -138,6 +191,17 @@ class BFHelical(BField):
         n_rnd = generate_ndim_random_directions()[0]
         return np.linalg.norm(bf_ord) * self.fraction_rnd * n_rnd
 
+    def bf_rnd_vec(self, ps):
+        """
+        Vectors of random B-field component at N points in rectangular
+        coordinates.
+
+        """
+        bf_ord_vec = self.bf_ord_vec(ps)
+        n_rnd = np.asarray(generate_ndim_random_directions(k=len(ps)))
+        return np.linalg.norm(bf_ord_vec, axis=1)[:, np.newaxis] *\
+               self.fraction_rnd * n_rnd
+
     def bf(self, x, y, z):
         """
         Vector of full magnetic field at N points (x, y, z) in rectangular
@@ -145,3 +209,11 @@ class BFHelical(BField):
 
         """
         return self.bf_ord(x, y, z) + self.bf_rnd(x, y, z)
+
+    def bf_vec(self, ps):
+        """
+        Vectors of full magnetic field at N points in rectangular
+        coordinates.
+
+        """
+        return self.bf_ord_vec(ps) + self.bf_rnd_vec(ps)
