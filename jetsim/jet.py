@@ -5,7 +5,7 @@ from bfields import BFHelical
 from vfields import FlatVField
 from nfields import BKNField
 from utils import AlongBorderException, k_I, source_func, m_e, q_e,\
-    transfer_stokes
+    transfer_stokes, enlarge
 
 
 # All vectors returned by methods are in triangular coordinates
@@ -193,75 +193,45 @@ class Jet(object):
         # print "bvalues ", bvalues
         # print "gammas ", gammas
         # print "nfs ", nfs
+        return dtaus
 
     def create_ray(self, ray, stokes=None, n=100, max_tau=None, max_delta=0.01,
-                   max_dtau=1.):
+                   max_dtau=1., k=10):
         """
         Create sequence of points which use for intergation.
         """
         try:
+            do_enlarge = True
             t1, t2 = self.geometry.hit(ray)
             # 1) Make default ``n`` cells
             dt = abs(t2 - t1) / n
             # Parameters of edges of cells
             t_edges = [min(t1, t2) + i * dt for i in xrange(n)]
             # Parametrs of centers of cells
-            t_cells = [min(t1, t2) + (i + 0.5) * dt for i in xrange(n - 1)]
-            # Edges of cells
-            p_edges = [ray.point(t) for t in t_edges]
-            # Centers of cells
-            p_cells = [ray.point(t) for t in t_cells]
-            # 2) For each cell check that relative ratio of B, n, v in plasma
-            # rest frame less then user specified value ``max_delta``.
-            pass
-            # 3) Split cells in two where it is not so. Thus we have ``n`` +
-            # delta cells
-            pass
-            # 4) Going from front of jet inside and find tau = sum(k_I * dl)
-            # If tau < tau_max => OK. If not => use only first N cells where
-            # tau < tau_max
-            pass
-            # Here we got N ``t`` values in ts
-            # Now numerically integrate:
-            # 1) Going from background into jet
-            # TODO: Do this outside ``Jet`` class! Here only transfer inside
-            # jet.
-            pass
-            # 2) Cycle inside jet
-            for i, p in enumerate(p_cells):
-                x, y, z = p
-                # Calculate physical distance between cell edges [cm]
-                dp = 3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
-                                                           p_edges[i])
-                # Calculate optical depth
-                dtau = self.k_I_j(x, y, z, -ray.direction) * dp
-                if dtau > max_dtau:
-                    # Split this cell in several recursevely
-                    pass
-                tau = tau + dtau
-                # Calculate source function
-                s_func = self.source_func_j(x, y, z, -ray.direction)
-                # This adds to stokes vector in current cell rest frame
-                print "Processing ", i, p
-                print "dp ", dp
-                print "dtau ", dtau, "tau ", tau
-                print "s_func ", s_func
-                dI = (s_func - stokes[0]) * dtau
-                print "dI ", dI, "I ", stokes[0]
-                if dI < 0:
-                    dI = 0
-                stokes[0] = stokes[0] + dI
-                # 3) Coming out of jet
-                pass
-            # Stokes I can't be negative
-            stokes[0][np.where(stokes[0] < 0)] = 0.
-            # 4) Boost to observer rest frame
-            stokes = transfer_stokes(stokes, self.vfield.v(x, y, z),
-                                     np.zeros(3),
-                                     self.n_j(-ray.direction, x, y, z),
-                                     self.bf(x, y, z))
+            t_cells = np.asarray([min(t1, t2) + (i + 0.5) * dt for i in
+                                  xrange(n - 1)])
 
-            result = stokes
+            def create(t_cells, t_edges):
+                # Edges of cells
+                p_edges = [ray.point(t) for t in t_edges]
+                # Centers of cells
+                p_cells = [ray.point(t) for t in t_cells]
+                dtaus = self.calculate_vectorized(p_cells, p_edges, n)
+                big_cells = np.where(dtaus > max_dtau)[0]
+
+                if len(big_cells):
+                    new_t_cells = enlarge(t_cells, big_cells, k)
+                    new_t_edges = enlarge(t_edges, big_cells, k)
+                    create(new_t_cells, new_t_edges)
+                else:
+                    return t_cells, t_edges
+
+            t_cells, t_edges = create(t_cells, t_edges)
+            # Edges of final cells
+            p_edges = [ray.point(t) for t in t_edges]
+            # Centers of final cells
+            p_cells = [ray.point(t) for t in t_cells]
+
 
         # If ``hit`` returns ``None`` => no interception of ray with jet.
         except TypeError:
@@ -270,8 +240,7 @@ class Jet(object):
             # Going to max_tau if given or just traversing along border
             pass
 
-        return result, tau
-
+        return p_edges, p_cells
 
     # TODO: One can use utils.doppler_factor function with ``v1`` = 0.
     def D(self, n, x, y, z):
