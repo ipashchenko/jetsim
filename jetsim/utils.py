@@ -384,3 +384,49 @@ def generate_ndim_random_directions(n=3, k=1):
             continue
 
     return result
+
+
+def enlarge(arr, indxs, k):
+    """
+    Enlarge array ``arr`` using mask such way that ``False`` values are deleted
+    from ``arr`` and on their places new subarrays are added with values
+    linearly interpolating ``True`` values.
+    :param arr:
+    :param indxs:
+    :param k:
+    :return:
+    """
+    # Create empty enlarged array
+    new_arr = np.empty(len(arr) + len(indxs) * (k - 1), dtype=float)
+    # Find new indexes of elements that won't be substituted in new array
+    indxs_old = np.delete(np.indices(arr.shape)[0], indxs)
+    # Get this values from original array
+    new_arr[i_(indxs_old, indxs, k)] = arr[indxs_old]
+    # Interpolate/extrapolate substituted values in enlarged array
+    indxs_where_to_interp = np.delete(np.indices(new_arr.shape)[0],
+                                      i_(indxs_old, indxs, k))
+    new_arr[indxs_where_to_interp] = np.interp(indxs_where_to_interp,
+                                               i_(indxs_old, indxs, k),
+                                               np.asarray(indxs_old))
+    return new_arr
+
+
+def i_(indxs_old, indxs, k):
+    """
+    Returns indexes of elements that were not enlarged in new enlarged array.
+    :param indxs_old:
+        Indexes (in original 1D array) of elements that won't be substituted in
+        new enlarged 1D array.
+    :param indxs:
+        Indexes of elements in original 1D array that will be substituted in new
+        enlarged 1D array.
+    :param k:
+        One element is substituted by ``k`` elements.
+    :return:
+        Numpy array of indexes that were not substituted (in new 1D array).
+    """
+    indxs_old = np.asarray(indxs_old)
+    indxs = np.asarray(indxs)
+    return np.sum(np.array((indxs_old - indxs[:, np.newaxis])>0, dtype=int),
+                  axis=0) * (k - 1) + indxs_old
+
