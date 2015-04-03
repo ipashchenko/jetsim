@@ -392,12 +392,29 @@ def enlarge(arr, indxs, k):
     from ``arr`` and on their places new subarrays are added with values
     linearly interpolating ``True`` values.
     :param arr:
+        Numpy 1D array to be enlarged.
     :param indxs:
+        Iterable if indexes of elements of ``arr`` to be substituted by ``k``
+        elements each.
     :param k:
+        Number of elements to substitute those indexed by ``indxs`` in ``arr``.
+        Single number or iterable of length ``len(indxs)``.
     :return:
+        Enlarged numpy 1D array with values in added elements linearly
+        interpolated.
+
     """
+    # If ``k`` is single number then create array of ``k`` with length equal
+    # ``len(indxs)``
+    try:
+        assert len(k) == len(indxs)
+        k = np.asarray(k)
+    except AssertionError:
+        k = k * np.ones(len(indxs), dtype=int)
+
     # Create empty enlarged array
-    new_arr = np.empty(len(arr) + len(indxs) * (k - 1), dtype=float)
+    # new_arr = np.empty(len(arr) + len(indxs) * (k - 1), dtype=float)
+    new_arr = np.empty(len(arr) + sum(k - 1), dtype=float)
     # Find new indexes of elements that won't be substituted in new array
     indxs_old = np.delete(np.indices(arr.shape)[0], indxs)
     # Get this values from original array
@@ -407,7 +424,7 @@ def enlarge(arr, indxs, k):
                                       i_(indxs_old, indxs, k))
     new_arr[indxs_where_to_interp] = np.interp(indxs_where_to_interp,
                                                i_(indxs_old, indxs, k),
-                                               np.asarray(indxs_old))
+                                               arr[np.asarray(indxs_old)])
     return new_arr
 
 
@@ -421,12 +438,18 @@ def i_(indxs_old, indxs, k):
         Indexes of elements in original 1D array that will be substituted in new
         enlarged 1D array.
     :param k:
-        One element is substituted by ``k`` elements.
+        One element is substituted by ``k`` elements if k is number or each i-th
+        element from ``indxs`` (i=0, len(indxs)) is substituted by ``k[i]``.
     :return:
         Numpy array of indexes that were not substituted (in new 1D array).
+
     """
     indxs_old = np.asarray(indxs_old)
     indxs = np.asarray(indxs)
-    return np.sum(np.array((indxs_old - indxs[:, np.newaxis])>0, dtype=int),
-                  axis=0) * (k - 1) + indxs_old
 
+    # Number of substituted elements before current element
+    temp = np.sum(np.array((indxs_old - indxs[:, np.newaxis]) > 0, dtype=int),
+                  axis=0)
+    k = np.insert(k, 0, 0)
+
+    return np.cumsum(k)[temp] + indxs_old - temp
