@@ -41,9 +41,12 @@ class Transfer(object):
         self.los_angle = los_angle
         self.los_direction = (math.sin(los_angle), 0, -math.cos(los_angle))
         # Number of pc in one pixel
+        # 0.054 pc in 1 pxl
         self.yscale = pixsize[0] * mas_to_pc(z)
         self.zscale = pixsize[1] * mas_to_pc(z)
+        # 0.03 mas
         self.pixsize = pixsize
+        # 128
         self.imsize = imsize
         self.z = z
         self.nu_obs = nu_obs
@@ -99,16 +102,27 @@ class Transfer(object):
     def transfer(self, n=100, max_tau=None, max_delta=0.01):
         for row in self:
             for ray, pixel in row:
+                if pixel[1] < self.imsize[0] / 2:
+                    print "skipping CJ"
+                    continue
+                if self.imsize[0] / 4 > pixel[0] > 3 * self.imsize[0] / 4:
+                    print "skipping of spine"
+                    continue
+                print "transfer for pixel {}".format(pixel)
                 if abs(pixel[0] - self.imsize[0] / 2.) > self.imsize[0] / (2. * self.zoom):
+                    print "skipped"
                     continue
                 if abs(pixel[1] - self.imsize[1] / 2.) > self.imsize[1] / (2. * self.zoom):
+                    print "skipped"
                     continue
-                print "================="
-                print "processing pixel ", pixel
-                print "================="
+                # print "================="
+                # print "processing pixel ", pixel
+                # print "================="
                 stokes, tau = self.jet.transfer_stokes_along_ray(ray, n=n,
                                                                  max_tau=max_tau,
                                                                  max_delta=max_delta)
+                print "Tau {}".format(tau)
+                print "I {}".format(stokes[0])
                 for i, stok in enumerate(['I', 'Q', 'U', 'V']):
                     self._image[stok][pixel] = stokes[i]
                     self._tau[pixel] = tau
@@ -141,17 +155,25 @@ class Transfer(object):
 
 if __name__ == '__main__':
 
-    jet = Jet()
-    transfer = Transfer(jet, los_angle=0.4, imsize=(400, 400,),
-                        pixsize=(0.000125, 0.000125,), z=0.5, nu_obs=1., zoom=16)
-    size = (400, 400,)
-    bmaj = 20.
-    bmin = 20.
-    bpa = 0.
-    beam = Beam(bmaj, bmin, bpa, size)
+    from geometry import Cone
+    from bfields import BFHelical
+    from vfields import FlatVField
+    from nfields import BKNField
+    jet = Jet(geometry=Cone, bfield=BFHelical, vfield=FlatVField,
+              nfield=BKNField, geo_kwargs={'angle': np.pi/72},
+              bf_kwargs={'bf_fi_0': 10**5, 'bf_z_0': 10**5, 'fraction_rnd': 0.5},
+              nf_kwargs={'n_0': 10**4})
+    transfer = Transfer(jet, los_angle=0.2, imsize=(258, 258,),
+                        pixsize=(0.03, 0.03,), z=0.1, nu_obs=5.,
+                        zoom=1)
+    # size = (400, 400,)
+    # bmaj = 20.
+    # bmin = 20.
+    # bpa = 0.
+    # beam = Beam(bmaj, bmin, bpa, size)
     t1 = time.time()
     transfer.transfer(n=50)
     # result = transfer.transfer_mp()
     t2 = time.time()
     print t2 - t1
-    image = transfer.image(beam=beam)
+    # image = transfer.image(beam=beam)

@@ -20,20 +20,20 @@ class Jet(object):
                  nfield=BKNField, geo_kwargs=None, bf_kwargs=None,
                  vf_kwargs=None, nf_kwargs=None, m=m_e, q=q_e, s=2.5):
         if geo_kwargs is not None:
-            self.geometry = geometry((0., 0., 0.,), (0., 0., 1.,), bf_kwargs)
+            self.geometry = geometry((0., 0., 0.,), (0., 0., 1.,), **geo_kwargs)
         else:
             # Default opening angle is pi/36
             self.geometry = geometry((0., 0., 0.,), (0., 0., 1.,))
         if bf_kwargs is not None:
-            self.bfield = bfield(bf_kwargs)
+            self.bfield = bfield(**bf_kwargs)
         else:
             self.bfield = bfield()
         if vf_kwargs is not None:
-            self.vfield = vfield(bf_kwargs)
+            self.vfield = vfield(**vf_kwargs)
         else:
             self.vfield = vfield()
         if nf_kwargs is not None:
-            self.nfield = nfield(nf_kwargs)
+            self.nfield = nfield(**nf_kwargs)
         else:
             self.nfield = nfield()
 
@@ -73,6 +73,35 @@ class Jet(object):
         """
         self.nu_obs = nu
 
+    def calculate_vectorized(self, plist, p_edges, n):
+        """
+        Calculate various values in given points of jet.
+
+        :return:
+            Sequence of arrays with values of tau, B, G, n. All values except
+            n are in plasma rest frame.
+
+        """
+        parray = np.asarray(plist)
+        # Calcualate physical depth of each cell
+        dps = np.array([3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
+                                                              p_edges[i]) for i
+                        in xrange(len(p_edges)-1)])
+        ks = self.k_I_j_vec(parray, n)
+        # Calculate optical depths of each cell
+        dtaus = ks * dps
+        # Calculate B_j values
+        bvalues = np.linalg.norm(self.bf_j_vec(parray), axis=1)
+        gammas = self.G_vec(parray)
+        nfs = self.nf_j_vec(parray)
+        # print "dp ", dps
+        # print "dtaus ", dtaus
+        # print "k_I ", ks
+        # print "bvalues ", bvalues
+        # print "gammas ", gammas
+        # print "nfs ", nfs
+        return dtaus, bvalues, gammas, nfs
+
     # TODO: If optical depth is Lorenz-invariant then traverse from front of jet
     # to tau=``tau_max`` in observer frame first to set initial point.
     # TODO: Add option of choosing ``n`` using only ``max_delta`` & ``max_tau``.
@@ -83,14 +112,14 @@ class Jet(object):
 
         :param ray:
             Instance of Ray class. Ray along which to make polaization transfer.
-        :param stokes (optioanl):
+        :param stokes (optional):
             Initial (background) stokes vector.
-        :param n (optioanl):
+        :param n (optional):
             Number of cells to use.
-        :param max_tau (optioanl):
+        :param max_tau (optional):
             Maximum optical depth to traverse into jet. Ignore all emission with
             tau > max_tau.
-        :param max_delta:
+        :param max_delta (optional):
             Maximum fractional change of physical quantities (B-field, n, v) in
             neighbor cells. If fractional change is more then max_delta =>
             divide cell in two (recursevly).
@@ -122,6 +151,17 @@ class Jet(object):
             # 4) Going from front of jet inside and find tau = sum(k_I * dl)
             # If tau < tau_max => OK. If not => use only first N cells where
             # tau < tau_max
+            # Calculate optical depth
+            tau = 0.
+            for j, p in enumerate(p_cells[::-1]):
+                x, y, z = p
+                dp = 3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
+                                                           p_edges[i])
+                dtau = self.k_I_j(x, y, z, -ray.direction) * dp
+                tau += dtau
+                if tau > 100:
+                    print "Found tau > 10"
+                    break
             pass
             # Here we got N ``t`` values in ts
             # Now numerically integrate:
@@ -130,7 +170,7 @@ class Jet(object):
             # jet.
             pass
             # 2) Cycle inside jet
-            for i, p in enumerate(p_cells):
+            for i, p in enumerate(p_cells[::-1][:j]):
                 x, y, z = p
                 # Calculate physical distance between cell edges [cm]
                 dp = 3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
@@ -144,12 +184,12 @@ class Jet(object):
                 # Calculate source function
                 s_func = self.source_func_j(x, y, z, -ray.direction)
                 # This adds to stokes vector in current cell rest frame
-                print "Processing ", i, p
-                print "dp ", dp
-                print "dtau ", dtau, "tau ", tau
-                print "s_func ", s_func
+                # print "Processing ", i, p
+                # print "dp ", dp
+                # print "dtau ", dtau, "tau ", tau
+                # print "s_func ", s_func
                 dI = (s_func - stokes[0]) * dtau
-                print "dI ", dI, "I ", stokes[0]
+                # print "dtau ", dtau, "tau ", tau, "dI ", dI, "I ", stokes[0]
                 if dI < 0:
                     dI = 0
                 stokes[0] = stokes[0] + dI
@@ -174,34 +214,36 @@ class Jet(object):
 
         return result, tau
 
-    def calculate_vectorized(self, plist, p_edges, n):
-        parray = np.asarray(plist)
-        # Calcualate physical depth of each cell
-        dps = np.array([3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
-                                                              p_edges[i]) for i
-                        in xrange(len(p_edges)-1)])
-        # Calculate optical depths of each cell
-        dtaus = self.k_I_j_vec(parray, n) * dps
-        # Calculate B_j values
-        bvalues = np.linalg.norm(self.bf_j_vec(parray), axis=1)
-        gammas = self.G_vec(parray)
-        nfs = self.nf_j_vec(parray)
-        ks = self.k_I_j_vec(parray, n)
-        # print "dp ", dps
-        # print "dtaus ", dtaus
-        # print "k_I ", ks
-        # print "bvalues ", bvalues
-        # print "gammas ", gammas
-        # print "nfs ", nfs
-        return dtaus
-
-    def create_ray(self, ray, stokes=None, n=100, max_tau=None, max_delta=0.01,
+    # TODO: For keeping edges info i need just ``dt``
+    def create_ray(self, ray, stokes=None, n=100, max_tau=None, max_delta=None,
                    max_dtau=1., k=10):
         """
-        Create sequence of points which use for intergation.
+        Create sequence of points which used for intergation. If any keyword is
+        ``None`` then partition of ray into cells doesn't depend on this.
+
+        :param ray:
+            Instance of ``Ray`` class.
+        :param n (optional):
+            Default number of cells.
+        :param max_tau (optional):
+            Maximum optical depth to traverse into jet. If ``None`` then this
+            doesn't used for partition. (default: ``None``)
+        :param max_delta (optional):
+            Maximum fractional difference in physical quantities in neighboor
+            cells. If ``None`` then this doesn't used for partition. (default:
+            ``None``)
+        :param max_dtau (optional):
+            Maximum optical depth of each cell. (default: ``1.``)
+        :param k (optional):
+            How many cells to split the cell that doesn't meet constraints.
+            (default: ``10``)
+
+        :return:
+            Sequence of ``p_edges``, ``p_cells`` (lists of edges & center of
+            cells.)
+
         """
         try:
-            do_enlarge = True
             t1, t2 = self.geometry.hit(ray)
             # 1) Make default ``n`` cells
             dt = abs(t2 - t1) / n
@@ -211,31 +253,53 @@ class Jet(object):
             t_cells = np.asarray([min(t1, t2) + (i + 0.5) * dt for i in
                                   xrange(n - 1)])
 
-            def create(t_cells, t_edges):
+            def check_ray(t_cells, t_edges):
                 # Edges of cells
                 p_edges = [ray.point(t) for t in t_edges]
                 # Centers of cells
                 p_cells = [ray.point(t) for t in t_cells]
-                dtaus = self.calculate_vectorized(p_cells, p_edges, n)
-                big_cells = np.where(dtaus > max_dtau)[0]
+                print "Calculating values in cells"
+                dtaus, bvalues, gammas, nfs = self.calculate_vectorized(p_cells,
+                                                                        p_edges,
+                                                                        -ray.direction)
+                print dtaus
+                # TODO: Find how many times to enlarge each big ``cell``
+                # FIXME: If i alter some cell because of big frac. constrain
+                # then i can't do this in one pass
+
+                # Check constraints and find indexes where they are breaked
+                if max_delta is None:
+                    big_cells = np.where(dtaus > max_dtau)[0]
+                    print "Found ", len(big_cells), " max-dtau cells"
+                    # Find enlargement factors
+                    ks = np.ceil(dtaus[big_cells] / max_dtau)
+                    print "Enlargement by max-dtau-constrains is : ",\
+                        int(sum(ks) - len(ks)), " cells"
+                else:
+                    big_ratios = np.where((abs(bvalues[1:]/bvalues[:-1] - 1.) >
+                                           max_delta) &
+                                          (abs(gammas[1:]/gammas[:-1] - 1.) >
+                                           max_delta) &
+                                          (abs(nfs[1:]/nfs[:-1] - 1.) >
+                                           max_delta))[0]
 
                 if len(big_cells):
-                    new_t_cells = enlarge(t_cells, big_cells, k)
-                    new_t_edges = enlarge(t_edges, big_cells, k)
-                    create(new_t_cells, new_t_edges)
+                    new_t_cells = enlarge(t_cells, big_cells, ks)
+                    # TODO: Calculate it using ``new_t_cells``
+                    new_t_edges = enlarge(t_edges, big_cells, ks)
+                    check_ray(new_t_cells, new_t_edges)
                 else:
                     return t_cells, t_edges
 
-            t_cells, t_edges = create(t_cells, t_edges)
+            t_cells, t_edges = check_ray(t_cells, t_edges)
             # Edges of final cells
             p_edges = [ray.point(t) for t in t_edges]
             # Centers of final cells
             p_cells = [ray.point(t) for t in t_cells]
 
-
         # If ``hit`` returns ``None`` => no interception of ray with jet.
         except TypeError:
-            result = stokes
+            return None
         except AlongBorderException:
             # Going to max_tau if given or just traversing along border
             pass
@@ -337,9 +401,10 @@ class Jet(object):
         B_j = self.bf_j(x, y, z)
         B_j = B_j / np.linalg.norm(B_j)
         v = self.vf(x, y, z)
-        return (1. / math.sqrt(1. - np.dot(B_j, v) ** 2.)) * (B_j - (G / (1. + G)) * np.dot(B_j, v) * v)
-        #return ((1. + G) * B + G ** 2. * B.dot(v) * v) /\
-        #       ((1. + G) * np.sqrt(1. + G ** 2. * (B.dot(v)) ** 2.))
+        return (1. / math.sqrt(1. - np.dot(B_j, v) ** 2.)) *\
+            (B_j - (G / (1. + G)) * np.dot(B_j, v) * v)
+        # return ((1. + G) * B + G ** 2. * B.dot(v) * v) /\
+        #        ((1. + G) * np.sqrt(1. + G ** 2. * (B.dot(v)) ** 2.))
 
     def nf_j(self, x, y, z):
         """
@@ -383,7 +448,7 @@ class Jet(object):
         n_j_vec = self.n_j_vec(n, ps)
         nu_j_vec = self.nu_j_vec(n, ps)
         sin_theta = np.linalg.norm(np.cross(n_j_vec, B_j_vec)) /\
-                    np.linalg.norm(B_j_vec, axis=1)
+            np.linalg.norm(B_j_vec, axis=1)
         return k_I(nu_j_vec, nf_j_vec, np.linalg.norm(B_j_vec, axis=1),
                    sin_theta, s=self.s, q=self.q, m=self.m)
 
@@ -416,7 +481,7 @@ class Jet(object):
         n_j_vec = self.n_j_vec(n, ps)
         nu_j_vec = self.nu_j_vec(n, ps)
         sin_theta = np.linalg.norm(np.cross(n_j_vec, B_j_vec)) / \
-                    np.linalg.norm(B_j_vec, axis=1)
+            np.linalg.norm(B_j_vec, axis=1)
         return source_func(nu_j_vec, nf_j_vec, np.linalg.norm(B_j_vec),
                            sin_theta, s=self.s, q=self.q, m=self.m)
 
@@ -446,28 +511,29 @@ if __name__ == '__main__':
     ray = Ray(origin, direction)
     n = -np.array(direction)
 
-    t1, t2 = jet.geometry.hit(ray)
-    k = 10
-    dt = abs(t2 - t1) / k
-    t_edges = [t2 + i * dt for i in xrange(k)]
-    t_cells = [min(t1, t2) + (i + 0.5) * dt for i in xrange(k - 1)]
-    p_edges = [ray.point(t) for t in t_edges]
-    p_cells = [ray.point(t) for t in t_cells]
-    i = 50
-    p = p_cells[i]
-    x, y, z = p
-    dp = np.linalg.norm(p_edges[i + 1] - p_edges[i])
-    B_j = jet.bf_j(x, y, z)
-    nf_j = jet.nf_j(x, y, z)
-    nu = jet.nu
-    from utils import k_0, nu_plasma, nu_b
-    print "nu_plasma", nu_plasma(nf_j)
-    print "nu_b", nu_b(np.linalg.norm(B_j))
-    print "k_0", k_0(nu, nf_j, np.linalg.norm(B_j))
+    jet.create_ray(ray, n=10, max_dtau=1.*10**(-16))
+    # t1, t2 = jet.geometry.hit(ray)
+    # k = 10
+    # dt = abs(t2 - t1) / k
+    # t_edges = [t2 + i * dt for i in xrange(k)]
+    # t_cells = [min(t1, t2) + (i + 0.5) * dt for i in xrange(k - 1)]
+    # p_edges = [ray.point(t) for t in t_edges]
+    # p_cells = [ray.point(t) for t in t_cells]
+    # i = 50
+    # p = p_cells[i]
+    # x, y, z = p
+    # dp = np.linalg.norm(p_edges[i + 1] - p_edges[i])
+    # B_j = jet.bf_j(x, y, z)
+    # nf_j = jet.nf_j(x, y, z)
+    # nu = jet.nu
+    # from utils import k_0, nu_plasma, nu_b
+    # print "nu_plasma", nu_plasma(nf_j)
+    # print "nu_b", nu_b(np.linalg.norm(B_j))
+    # print "k_0", k_0(nu, nf_j, np.linalg.norm(B_j))
 
-    dtau = jet.k_I_j(x, y, z, n) * dp
-    print "dtau", dtau
-    s_func = jet.source_func_j(x, y, z, -ray.direction)
-    print "source_func", s_func
+    # dtau = jet.k_I_j(x, y, z, n) * dp
+    # print "dtau", dtau
+    # s_func = jet.source_func_j(x, y, z, -ray.direction)
+    # print "source_func", s_func
 
-    out_stokes = jet.transfer_stokes_along_ray(ray)
+    # out_stokes = jet.transfer_stokes_along_ray(ray)
