@@ -386,6 +386,7 @@ def generate_ndim_random_directions(n=3, k=1):
     return result
 
 
+# FIXME: len(indxs) = len(arr) case
 def enlarge(arr, indxs, k):
     """
     Enlarge array ``arr`` using mask such way that ``False`` values are deleted
@@ -452,4 +453,6 @@ def i_(indxs_old, indxs, k):
                   axis=0)
     k = np.insert(k, 0, 0)
 
-    return np.cumsum(k)[temp] + indxs_old - temp
+    result = np.cumsum(k)[temp] + indxs_old - temp
+    print result
+    return result
