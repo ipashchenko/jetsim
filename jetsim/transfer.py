@@ -102,6 +102,9 @@ class Transfer(object):
     def transfer(self, n=100, max_tau=None, max_delta=0.01):
         for row in self:
             for ray, pixel in row:
+                # FIXME: Debugging
+                # if pixel[1] != 131 or pixel[0] != 129:
+                #     continue
                 if pixel[1] < self.imsize[0] / 2:
                     print "skipping CJ"
                     continue
@@ -164,7 +167,7 @@ if __name__ == '__main__':
               bf_kwargs={'bf_fi_0': 10**5, 'bf_z_0': 10**5, 'fraction_rnd': 0.5},
               nf_kwargs={'n_0': 10**4})
     transfer = Transfer(jet, los_angle=0.2, imsize=(258, 258,),
-                        pixsize=(0.03, 0.03,), z=0.1, nu_obs=5.,
+                        pixsize=(0.03, 0.03,), z=0.1, nu_obs=15.,
                         zoom=1)
     # size = (400, 400,)
     # bmaj = 20.
@@ -172,7 +175,7 @@ if __name__ == '__main__':
     # bpa = 0.
     # beam = Beam(bmaj, bmin, bpa, size)
     t1 = time.time()
-    transfer.transfer(n=50)
+    transfer.transfer(n=300)
     # result = transfer.transfer_mp()
     t2 = time.time()
     print t2 - t1

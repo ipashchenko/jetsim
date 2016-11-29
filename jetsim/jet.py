@@ -153,15 +153,18 @@ class Jet(object):
             # tau < tau_max
             # Calculate optical depth
             tau = 0.
-            for j, p in enumerate(p_cells[::-1]):
+            # for j, p in enumerate(p_cells[::-1]):
+            for j, p in enumerate(p_cells[::]):
                 x, y, z = p
                 dp = 3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
                                                            p_edges[i])
                 dtau = self.k_I_j(x, y, z, -ray.direction) * dp
-                tau += dtau
-                if tau > 100:
-                    print "Found tau > 10"
+                # print "dtau ", dtau
+                if tau + dtau > 10:
+                    print "Found tau > 10 at j={}".format(j)
                     break
+                tau += dtau
+                # print "tau ========= ", tau
             pass
             # Here we got N ``t`` values in ts
             # Now numerically integrate:
@@ -170,7 +173,8 @@ class Jet(object):
             # jet.
             pass
             # 2) Cycle inside jet
-            for i, p in enumerate(p_cells[::-1][:j]):
+            # for i, p in enumerate(p_cells[::-1][:j]):
+            for i, p in enumerate(p_cells[::-1][n-j:]):
                 x, y, z = p
                 # Calculate physical distance between cell edges [cm]
                 dp = 3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
