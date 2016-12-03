@@ -12,11 +12,15 @@ m_e = 9.109382 * 10 ** (-28)
 # Mass of proton [g]
 m_p = 1.672621 * 10 ** (-24)
 # Charge of electron [C]
-q_e = 1.602176 * 10 ** (-19)
+# q_e = 1.602176 * 10 ** (-19)
+q_e = 4.8 * 10 ** (-10)
 # Charge of proton [C]
-q_p = 1.602176 * 10 ** (-19)
+# q_p = 1.602176 * 10 ** (-19)
+q_p = 4.8 * 10 ** (-10)
 # Speed of light [cm / s]
 c = 3. * 10 ** 10
+# Jy in cgc
+to_jy = 10. ** 23
 
 
 class AlongBorderException(Exception):
@@ -24,42 +28,38 @@ class AlongBorderException(Exception):
 
 
 # Plasma frequency (default - for electrons)
-def nu_plasma(n, q=q_e, m=m_e):
+def nu_plasma(n):
     """
     Returns plasma frequency for particles with charge ``q`` and mass ``m``.
     Default are electrons/positrons.
     :param n:
         Concentration [cm ** (-3)]
-    :param q (optional):
-        Particle's charge. Default is ``q_e``.
-    :param m (optional):
-        Particle's mass. Default is ``m_e``.
     :return:
         Plasma frequency [Hz].
     """
-    return np.sqrt(n * q ** 2. / (math.pi * m))
+    result = np.sqrt(n * q_e ** 2. / (math.pi * m_e))
+    # print "Nu_plasma = {} given n={}, q={}, m={}".format(result, n, q_e, m_e)
+    return result
 
 
 # Larmor frequency (default - for electrons)
-def nu_b(B, q=q_e, m=m_e):
+def nu_b(B):
     """
     Returns larmor frequency for particles with charge ``q`` and mass ``m``.
     Default are electrons/positrons.
     :param B:
         Magnetic field [G]
-    :param q (optional):
-        Particle's charge. Default is ``q_e``.
-    :param m (optional):
-        Particle's mass. Default is ``m_e``.
     :return:
         Larmor frequency [Hz].
     """
-    return q * B / (2. * math.pi * m * c)
+    result = q_e * B / (2. * math.pi * m_e * c)
+    # print "Nu_B = {}".format(result)
+    return result
 
 
 # TODO: I dont' need it: just use nu_b * sin(n, B)
 # Larmor frequency with sin(n, B) (default - for electrons)
-def nu_b_tr(n, B, q=q_e, m=m_e):
+def nu_b_tr(n, B):
     """
     Returns larmor frequency for particles with charge ``q`` and mass ``m``.
     Default are electrons/positrons.
@@ -67,36 +67,30 @@ def nu_b_tr(n, B, q=q_e, m=m_e):
         Direction of emission.
     :param B:
         Magnetic field vecotr [G]
-    :param q (optional):
-        Particle's charge. Default is ``q_e``.
-    :param m (optional):
-        Particle's mass. Default is ``m_e``.
     :return:
         Larmor frequency [Hz].
     """
-    return q * abs(np.cross(n, B)) / (2. * np.linalg.norm(B) * math.pi * m * c)
+    return q_e * abs(np.cross(n, B)) / (2. * np.linalg.norm(B) * math.pi * m_e * c)
 
 
 # eta_0 (default - for electrons)
-def eta_0(n, B, q=q_e, m=m_e):
+def eta_0(n, B):
     """
     Coefficient ``eta_0`` in emission coefficient.
     :param n:
         Concentration [cm ** (-3)]
     :param B:
         Magnetic field [G]
-    :param q (optional):
-        Particle's charge. Default is ``q_e``.
-    :param m (optional):
-        Particle's mass. Default is ``m_e``.
     :return:
         Coefficient ``eta_0`` used in expression for emission coefficient.
     """
-    return math.pi * nu_plasma(n, q=q, m=m) ** 2. * nu_b(B, q=q, m=m) * m / c
+    result = math.pi * nu_plasma(n) ** 2. * nu_b(B) * m_e / c
+    # print "Eta_0 = {}".format(result)
+    return result
 
 
 # k_0 (default - for electrons)
-def k_0(nu, n, B, q=q_e, m=m_e):
+def k_0(nu, n, B):
     """
     Coefficient ``k_0`` in absorption coefficient.
     :param nu:
@@ -105,18 +99,16 @@ def k_0(nu, n, B, q=q_e, m=m_e):
         Concentration [cm ** (-3)]
     :param B:
         Magnetic field [G]
-    :param q (optional):
-        Particle's charge. Default is ``q_e``.
-    :param m (optional):
-        Particle's mass. Default is ``m_e``.
     :return:
         Coefficient ``k_0`` used in expression for absorption coefficient.
     """
-    return math.pi * nu_plasma(n, q=q, m=m) ** 2. * nu_b(B, q=q, m=m) /\
+    result = math.pi * nu_plasma(n) ** 2. * nu_b(B) /\
         (c * nu ** 2.)
+    # print "K_0 = {}".format(result)
+    return result
 
 
-def eta_I(nu, n, B, sin_theta, s=2.5, q=q_e, m=m_e):
+def eta_I(nu, n, B, sin_theta, s=2.5):
     """
     Emission coefficient.
     :param nu:
@@ -129,19 +121,17 @@ def eta_I(nu, n, B, sin_theta, s=2.5, q=q_e, m=m_e):
         Sin of angle between direction of emission and magnetic field.
     :param s (optional):
         Power law index of electron energy distribution. Default is 2.5
-    :param q (optional):
-        Particle's charge. Default is ``q_e``.
-    :param m (optional):
-        Particle's mass. Default is ``m_e``.
     :return:
     """
-    return eta_0(n, B, q=q, m=m) * sin_theta *\
-           (nu_b(B, q=q, m=m) * sin_theta / nu) ** ((s - 1.) / 2.) *\
+    result = eta_0(n, B) * sin_theta *\
+           (nu_b(B) * sin_theta / nu) ** ((s - 1.) / 2.) *\
            (3. ** (s / 2.) / (2. * (s + 1.))) *\
            math.gamma(s / 4. + 19. / 12.) * math.gamma(s / 4. - 1. / 12.)
+    # print "Eta_I = {}".format(result)
+    return result
 
 
-def k_I(nu, n, B, sin_theta, s=2.5, q=q_e, m=m_e):
+def k_I(nu, n, B, sin_theta, s=2.5):
     """
     Absorption coefficient.
     :param nu:
@@ -154,19 +144,17 @@ def k_I(nu, n, B, sin_theta, s=2.5, q=q_e, m=m_e):
         Sin of angle between direction of emission and magnetic field.
     :param s (optional):
         Power law index of electron energy distribution. Default is 2.5
-    :param q (optional):
-        Particle's charge. Default is ``q_e``.
-    :param m (optional):
-        Particle's mass. Default is ``m_e``.
     :return:
     """
-    return k_0(nu, n, B, q=q, m=m) * sin_theta *\
-           (nu_b(B, q=q, m=m) * sin_theta / nu) ** (s / 2.) *\
+    result = k_0(nu, n, B) * sin_theta *\
+           (nu_b(B) * sin_theta / nu) ** (s / 2.) *\
            (3. ** ((s + 1.) / 2.) / 4.) *\
            math.gamma(s / 4. + 11. / 16.) * math.gamma(s / 4. + 1. / 6.)
+    # print "K_I = {}".format(result)
+    return result
 
 
-def source_func(nu, n, B, sin_theta, s=2.5, q=q_e, m=m_e):
+def source_func(nu, n, B, sin_theta, s=2.5):
     """
     Source function
     :param nu:
@@ -179,14 +167,11 @@ def source_func(nu, n, B, sin_theta, s=2.5, q=q_e, m=m_e):
         Sin of angle between direction of emission and magnetic field.
     :param s (optional):
         Power law index of electron energy distribution. Default is 2.5
-    :param q (optional):
-        Particle's charge. Default is ``q_e``.
-    :param m (optional):
-        Particle's mass. Default is ``m_e``.
     :return:
     """
-    return eta_I(nu, n, B, sin_theta, s=s, q=q, m=m) / k_I(nu, n, B, sin_theta,
-                                                           s=s, q=q, m=q)
+    result = eta_I(nu, n, B, sin_theta, s=s) / k_I(nu, n, B, sin_theta, s=s)
+    # print "SF = {}".format(result)
+    return result
 
 
 def velsum(v, u):

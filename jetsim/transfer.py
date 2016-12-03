@@ -4,7 +4,7 @@ import numpy as np
 from multiprocessing import Pool
 from geometry import Ray
 from jet import Jet
-from utils import mas_to_pc
+from utils import mas_to_pc, mas_to_rad
 from beam import Beam
 
 
@@ -46,6 +46,7 @@ class Transfer(object):
         self.zscale = pixsize[1] * mas_to_pc(z)
         # 0.03 mas
         self.pixsize = pixsize
+        self.pixel_area_rad = mas_to_rad**2 * pixsize[0] * pixsize[1]
         # 128
         self.imsize = imsize
         self.z = z
@@ -103,7 +104,10 @@ class Transfer(object):
         for row in self:
             for ray, pixel in row:
                 # FIXME: Debugging
-                # if pixel[1] != 131 or pixel[0] != 129:
+                # if pixel[1] != 111 or pixel[0] != 129:
+                # Debugging: set as imsize/2 to trace central spine
+                # if pixel[0] < 198 or pixel[0] > 202:
+                #     print "Skipping non-spine"
                 #     continue
                 if pixel[1] < self.imsize[0] / 2:
                     print "skipping CJ"
@@ -125,9 +129,9 @@ class Transfer(object):
                                                                  max_tau=max_tau,
                                                                  max_delta=max_delta)
                 print "Tau {}".format(tau)
-                print "I {}".format(stokes[0])
+                print "I {}".format(self.pixel_area_rad * stokes[0])
                 for i, stok in enumerate(['I', 'Q', 'U', 'V']):
-                    self._image[stok][pixel] = stokes[i]
+                    self._image[stok][pixel] = self.pixel_area_rad * stokes[i]
                     self._tau[pixel] = tau
 
     def transfer_along_rays(self, rays, n=100, max_tau=None, max_delta=0.01):
@@ -162,12 +166,14 @@ if __name__ == '__main__':
     from bfields import BFHelical
     from vfields import FlatVField
     from nfields import BKNField
+    # Note that B_fi-field in jet rest-frame (in observers rest-frame G times
+    # lower)
     jet = Jet(geometry=Cone, bfield=BFHelical, vfield=FlatVField,
               nfield=BKNField, geo_kwargs={'angle': np.pi/72},
-              bf_kwargs={'bf_fi_0': 10**5, 'bf_z_0': 10**5, 'fraction_rnd': 0.5},
-              nf_kwargs={'n_0': 10**4})
-    transfer = Transfer(jet, los_angle=0.2, imsize=(258, 258,),
-                        pixsize=(0.03, 0.03,), z=0.1, nu_obs=15.,
+              bf_kwargs={'bf_fi_0': 10., 'bf_z_0': 1, 'fraction_rnd': 0.3},
+              nf_kwargs={'n_0': 500})
+    transfer = Transfer(jet, los_angle=0.1, imsize=(800, 800),
+                        pixsize=(0.02, 0.02), z=0.1, nu_obs=5.0*10**9,
                         zoom=1)
     # size = (400, 400,)
     # bmaj = 20.

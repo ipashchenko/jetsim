@@ -5,7 +5,7 @@ from bfields import BFHelical
 from vfields import FlatVField
 from nfields import BKNField
 from utils import AlongBorderException, k_I, source_func, m_e, q_e,\
-    transfer_stokes, enlarge
+    transfer_stokes, enlarge, to_jy
 
 
 # All vectors returned by methods are in triangular coordinates
@@ -130,91 +130,105 @@ class Jet(object):
             stokes = np.zeros(4, dtype=float)
         else:
             stokes = np.array(stokes)
+
         try:
             t1, t2 = self.geometry.hit(ray)
-            # 1) Make default ``n`` cells
-            dt = abs(t2 - t1) / n
-            # Parameters of edges of cells
-            t_edges = [min(t1, t2) + i * dt for i in xrange(n)]
-            # Parametrs of centers of cells
-            t_cells = [min(t1, t2) + (i + 0.5) * dt for i in xrange(n - 1)]
-            # Edges of cells
-            p_edges = [ray.point(t) for t in t_edges]
-            # Centers of cells
-            p_cells = [ray.point(t) for t in t_cells]
-            # 2) For each cell check that relative ratio of B, n, v in plasma
-            # rest frame less then user specified value ``max_delta``.
-            pass
-            # 3) Split cells in two where it is not so. Thus we have ``n`` +
-            # delta cells
-            pass
-            # 4) Going from front of jet inside and find tau = sum(k_I * dl)
-            # If tau < tau_max => OK. If not => use only first N cells where
-            # tau < tau_max
-            # Calculate optical depth
-            tau = 0.
-            # for j, p in enumerate(p_cells[::-1]):
-            for j, p in enumerate(p_cells[::]):
-                x, y, z = p
-                dp = 3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
-                                                           p_edges[i])
-                dtau = self.k_I_j(x, y, z, -ray.direction) * dp
-                # print "dtau ", dtau
-                if tau + dtau > 10:
-                    print "Found tau > 10 at j={}".format(j)
-                    break
-                tau += dtau
-                # print "tau ========= ", tau
-            pass
-            # Here we got N ``t`` values in ts
-            # Now numerically integrate:
-            # 1) Going from background into jet
-            # TODO: Do this outside ``Jet`` class! Here only transfer inside
-            # jet.
-            pass
-            # 2) Cycle inside jet
-            # for i, p in enumerate(p_cells[::-1][:j]):
-            for i, p in enumerate(p_cells[::-1][n-j:]):
-                x, y, z = p
-                # Calculate physical distance between cell edges [cm]
-                dp = 3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
-                                                           p_edges[i])
-                # Calculate optical depth
-                dtau = self.k_I_j(x, y, z, -ray.direction) * dp
-                if dtau > max_dtau:
-                    # Split this cell in several recursevely
-                    pass
-                tau = tau + dtau
-                # Calculate source function
-                s_func = self.source_func_j(x, y, z, -ray.direction)
-                # This adds to stokes vector in current cell rest frame
-                # print "Processing ", i, p
-                # print "dp ", dp
-                # print "dtau ", dtau, "tau ", tau
-                # print "s_func ", s_func
-                dI = (s_func - stokes[0]) * dtau
-                # print "dtau ", dtau, "tau ", tau, "dI ", dI, "I ", stokes[0]
-                if dI < 0:
-                    dI = 0
-                stokes[0] = stokes[0] + dI
-            # 3) Coming out of jet
-                pass
-            # Stokes I can't be negative
-            stokes[0][np.where(stokes[0] < 0)] = 0.
-            # 4) Boost to observer rest frame
-            stokes = transfer_stokes(stokes, self.vfield.v(x, y, z),
-                                     np.zeros(3),
-                                     self.n_j(-ray.direction, x, y, z),
-                                     self.bf(x, y, z))
-
-            result = stokes
-
         # If ``hit`` returns ``None`` => no interception of ray with jet.
         except TypeError:
-            result = stokes
+            print "No interception"
+            return stokes, 0.
         except AlongBorderException:
             # Going to max_tau if given or just traversing along border
             pass
+
+        # 1) Make default ``n`` cells
+        dt = abs(t2 - t1) / n
+        # Parameters of edges of cells
+        t_edges = [min(t1, t2) + i * dt for i in xrange(n)]
+        # Parametrs of centers of cells
+        t_cells = [min(t1, t2) + (i + 0.5) * dt for i in xrange(n - 1)]
+        # Edges of cells
+        p_edges = [ray.point(t) for t in t_edges]
+        # Centers of cells
+        p_cells = [ray.point(t) for t in t_cells]
+        # 2) For each cell check that relative ratio of B, n, v in plasma
+        # rest frame less then user specified value ``max_delta``.
+        pass
+        # 3) Split cells in two where it is not so. Thus we have ``n`` +
+        # delta cells
+        pass
+        # 4) Going from front of jet inside and find tau = sum(k_I * dl)
+        # If tau < tau_max => OK. If not => use only first N cells where
+        # tau < tau_max
+        # Calculate optical depth
+        tau = 0.
+        # for j, p in enumerate(p_cells[::-1]):
+        for j, p in enumerate(p_cells[::]):
+            x, y, z = p
+            dp = 3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
+                                                       p_edges[i])
+            dtau = self.k_I_j(x, y, z, -ray.direction) * dp
+            # print "dtau = {}".format(dtau)
+            # print "dtau ", dtau
+            if tau + dtau > 10:
+                print "Found tau > 10 at j={}".format(j)
+                break
+            tau += dtau
+            # print "tau ========= ", tau
+        print "dp[pc] = {}".format(dp/(3. * 10 ** 18))
+        # If total opt.depth < threshold ==> count as I=0
+        if tau < 10.**(-3):
+            return np.zeros(4, dtype=float), tau
+
+        pass
+        # Here we got N ``t`` values in ts
+        # Now numerically integrate:
+        # 1) Going from background into jet
+        # TODO: Do this outside ``Jet`` class! Here only transfer inside
+        # jet.
+        pass
+        # 2) Cycle inside jet
+        # for i, p in enumerate(p_cells[::-1][:j]):
+        tau = 0.
+        for i, p in enumerate(p_cells[::-1][n-j+1:]):
+            x, y, z = p
+            # Calculate physical distance between cell edges [cm]
+            dp = 3.085677 * 10 ** 18. * np.linalg.norm(p_edges[i + 1] -
+                                                       p_edges[i])
+            # Calculate optical depth
+            dtau = self.k_I_j(x, y, z, -ray.direction) * dp
+            if dtau > max_dtau:
+                # Split this cell in several recursively
+                pass
+            tau = tau + dtau
+            # Calculate source function
+            s_func = to_jy * self.source_func_j(x, y, z, -ray.direction)
+            # print "S_FUNC = {}".format(s_func)
+            # This adds to stokes vector in current cell rest frame
+            # print "Processing ", i, p
+            # print "dp ", dp
+            # print "dtau ", dtau, "tau ", tau
+            # print "s_func ", s_func
+            dI = (s_func - stokes[0]) * dtau
+            # print "dtau ", dtau, "tau ", tau, "dI ", dI, "I ", stokes[0]
+            if dI < 0:
+                dI = 0
+            stokes[0] = stokes[0] + dI
+        # 3) Coming out of jet
+            pass
+
+        # # Stokes I can't be negative
+        # stokes[0][np.where(stokes[0] < 0)] = 0.
+
+        # 4) Boost to observer rest frame
+        # print "STOKES BEFORE transfer to observer : {}".format(stokes[0])
+        stokes = transfer_stokes(stokes, self.vfield.v(x, y, z),
+                                 np.zeros(3),
+                                 self.n_j(-ray.direction, x, y, z),
+                                 self.bf(x, y, z))
+        # print "STOKES AFTER transfer to observer : {}".format(stokes[0])
+
+        result = stokes
 
         return result, tau
 
@@ -431,12 +445,14 @@ class Jet(object):
         :return:
         """
         nf_j = self.nf_j(x, y, z)
+        # print "Got nf_j = {}".format(nf_j)
         B_j = self.bf_j(x, y, z)
+        # print "Got B_j = {}".format(B_j)
         n_j = self.n_j(n, x, y, z)
         nu_j = self.nu_j(n, x, y, z)
+        # print "Got nu_j = {}".format(nu_j)
         sin_theta = np.linalg.norm(np.cross(n_j, B_j)) / np.linalg.norm(B_j)
-        return k_I(nu_j, nf_j, np.linalg.norm(B_j), sin_theta, s=self.s,
-                   q=self.q, m=self.m)
+        return k_I(nu_j, nf_j, np.linalg.norm(B_j), sin_theta, s=self.s)
 
     def k_I_j_vec(self, ps, n):
         """
@@ -454,7 +470,7 @@ class Jet(object):
         sin_theta = np.linalg.norm(np.cross(n_j_vec, B_j_vec)) /\
             np.linalg.norm(B_j_vec, axis=1)
         return k_I(nu_j_vec, nf_j_vec, np.linalg.norm(B_j_vec, axis=1),
-                   sin_theta, s=self.s, q=self.q, m=self.m)
+                   sin_theta, s=self.s)
 
     def source_func_j(self, x, y, z, n):
         """
@@ -465,12 +481,15 @@ class Jet(object):
         :return:
         """
         nf_j = self.nf_j(x, y, z)
+        # print "SF nf_j = {}".format(nf_j)
         B_j = self.bf_j(x, y, z)
+        # print "SF B_j = {}".format(B_j)
         n_j = self.n_j(n, x, y, z)
         nu_j = self.nu_j(n, x, y, z)
+        # print "SF nu_j = {}".format(nu_j)
         sin_theta = np.linalg.norm(np.cross(n_j, B_j)) / np.linalg.norm(B_j)
         return source_func(nu_j, nf_j, np.linalg.norm(B_j), sin_theta,
-                           s=self.s, q=self.q, m=self.m)
+                           s=self.s)
 
     def source_func_j_vec(self, ps, n):
         """
@@ -487,7 +506,7 @@ class Jet(object):
         sin_theta = np.linalg.norm(np.cross(n_j_vec, B_j_vec)) / \
             np.linalg.norm(B_j_vec, axis=1)
         return source_func(nu_j_vec, nf_j_vec, np.linalg.norm(B_j_vec),
-                           sin_theta, s=self.s, q=self.q, m=self.m)
+                           sin_theta, s=self.s)
 
     # TODO: Make it coefficient on observer frame for ``tau`` calculation.
     # TODO: Caution! self.bf is direction!
@@ -501,8 +520,7 @@ class Jet(object):
         nf = self.nfield.n(x, y, z)
         B = self.bfield.bf(x, y, z)
         sin_theta = np.linalg.norm(np.cross(n, B)) / np.linalg.norm(B)
-        return k_I(self.nu, nf, np.linalg.norm(B), sin_theta, s=2.5, q=q_e,
-                   m=m_e)
+        return k_I(self.nu, nf, np.linalg.norm(B), sin_theta, s=2.5)
 
 
 if __name__ == '__main__':
