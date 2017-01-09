@@ -4,7 +4,7 @@ from geometry import Cone
 from bfields import BFHelical
 from vfields import FlatVField
 from nfields import BKNField
-from utils import AlongBorderException, k_I, source_func, m_e, q_e,\
+from bk_utils import AlongBorderException, k_I, source_func, m_e, q_e,\
     transfer_stokes, enlarge, to_jy
 
 

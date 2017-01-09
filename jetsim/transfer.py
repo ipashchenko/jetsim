@@ -4,7 +4,7 @@ import numpy as np
 from multiprocessing import Pool
 from geometry import Ray
 from jet import Jet
-from utils import mas_to_pc, mas_to_rad
+from bk_utils import mas_to_pc, mas_to_rad
 from beam import Beam
 
 
@@ -106,9 +106,9 @@ class Transfer(object):
                 # FIXME: Debugging
                 # if pixel[1] != 111 or pixel[0] != 129:
                 # Debugging: set as imsize/2 to trace central spine
-                # if pixel[0] < 198 or pixel[0] > 202:
-                #     print "Skipping non-spine"
-                #     continue
+                if pixel[0] < 298 or pixel[0] > 302:
+                    # print "Skipping non-spine"
+                    continue
                 if pixel[1] < self.imsize[0] / 2:
                     print "skipping CJ"
                     continue
@@ -170,10 +170,10 @@ if __name__ == '__main__':
     # lower)
     jet = Jet(geometry=Cone, bfield=BFHelical, vfield=FlatVField,
               nfield=BKNField, geo_kwargs={'angle': np.pi/72},
-              bf_kwargs={'bf_fi_0': 10., 'bf_z_0': 1, 'fraction_rnd': 0.3},
-              nf_kwargs={'n_0': 500})
-    transfer = Transfer(jet, los_angle=0.1, imsize=(800, 800),
-                        pixsize=(0.02, 0.02), z=0.1, nu_obs=5.0*10**9,
+              bf_kwargs={'bf_fi_0': 5., 'bf_z_0': 0.5, 'fraction_rnd': 0.3},
+              nf_kwargs={'n_0': 100.})
+    transfer = Transfer(jet, los_angle=0.1, imsize=(600, 600),
+                        pixsize=(0.005, 0.005), z=0.1, nu_obs=15.0*10**9,
                         zoom=1)
     # size = (400, 400,)
     # bmaj = 20.

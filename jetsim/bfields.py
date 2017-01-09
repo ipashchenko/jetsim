@@ -1,5 +1,5 @@
 import numpy as np
-from utils import generate_ndim_random_directions
+from bk_utils import generate_ndim_random_directions
 
 
 # TODO: ``BFRandom`` can be initialized with some value at ``z_0`` or
