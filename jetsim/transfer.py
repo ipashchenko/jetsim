@@ -65,7 +65,7 @@ class Transfer(object):
         jet_coordinates = image_coordinates.copy()
         jet_coordinates[..., 0] = image_coordinates[..., 0] * self.yscale
         jet_coordinates[..., 1] = image_coordinates[..., 1] * self.zscale /\
-            math.sin(self.jet.geometry.angle)
+            math.sin(self.los_angle)
         # Add zero x-coordinate for points in (yz)-jet plane
         jet_coordinates = np.dstack((np.zeros(imsize), jet_coordinates))
         self.image_coordinates = image_coordinates
